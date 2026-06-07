@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arc-devkit"
+version = "0.1.0"
+description = "Plataforma open source de ferramentas para desenvolvedores da Arc blockchain (Circle)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Arc DevKit Contributors" }
+]
+requires-python = ">=3.11"
+keywords = ["arc", "blockchain", "circle", "usdc", "web3", "ai", "anthropic"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+
+dependencies = [
+    # CLI e saída formatada
+    "typer[all]>=0.12",
+    "rich>=13.7",
+    # API REST
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    # Blockchain
+    "web3>=7.0",
+    # IA — SDK oficial Anthropic
+    "anthropic>=0.40",
+    # Utilitários
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    # httpx já está nas deps principais; listado aqui para clareza nos testes
+    "httpx>=0.27",
+]
+
+[project.scripts]
+# Comando principal: `arcdevkit <subcomando>`
+arcdevkit = "arc_devkit.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["arc_devkit*"]
+
+# ---------------------------------------------------------------------------
+# Ruff — linter e formatador
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F/W = erros e avisos pycodestyle/pyflakes
+# I     = ordenação de imports (isort)
+# UP    = modernização de sintaxe Python (pyupgrade)
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "E501",  # linhas longas — controlado pelo formatter, não pelo linter
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: testes que requerem conexão real com a Arc testnet (pulados no CI padrão)",
+]
