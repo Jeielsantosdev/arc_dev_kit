@@ -1,0 +1,14 @@
+# =============================================================================
+# Arc DevKit — Dependências de desenvolvimento
+# Instalar junto com requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+# =============================================================================
+
+-r requirements.txt
+
+# Testes
+pytest==9.0.3
+pytest-asyncio==1.4.0
+
+# Linting e formatação
+ruff==0.15.16
