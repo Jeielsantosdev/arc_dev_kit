@@ -1,0 +1,31 @@
+# =============================================================================
+# Arc DevKit — Dependências diretas (gerado a partir do ambiente instalado)
+# Gerado com: pip freeze | grep -v arc-devkit
+#
+# Para instalar:
+#   pip install -r requirements.txt
+#
+# Para instalar com dependências de desenvolvimento:
+#   pip install -r requirements.txt -r requirements-dev.txt
+# =============================================================================
+
+# CLI e saída formatada
+typer==0.26.7
+rich==15.0.0
+
+# API REST
+fastapi==0.136.3
+uvicorn==0.49.0
+starlette==1.2.1
+
+# Blockchain
+web3==7.16.0
+eth-account==0.13.7
+
+# IA — SDK Anthropic
+anthropic==0.107.1
+
+# Utilitários
+python-dotenv==1.2.2
+httpx==0.28.1
+pydantic==2.13.4
