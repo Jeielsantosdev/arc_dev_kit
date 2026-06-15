@@ -28,9 +28,10 @@ def create_wallet() -> dict[str, str]:
     """
     account = Account.create()
     logger.info("Nova carteira criada: %s", account.address)
+    key_hex = account.key.hex()
     return {
         "address": account.address,
-        "private_key": account.key.hex(),
+        "private_key": key_hex if key_hex.startswith("0x") else f"0x{key_hex}",
     }
 
 

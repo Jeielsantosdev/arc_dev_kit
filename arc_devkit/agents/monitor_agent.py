@@ -83,11 +83,7 @@ class MonitorAgent(BaseAgent):
                     "diferenca_wei": str(diferenca),
                     "tipo": "credito" if diferenca > 0 else "debito",
                 }
-                self.log(
-                    "Mudança detectada: %+d wei (%s)",
-                    diferenca,
-                    evento["tipo"],
-                )
+                self.log(f"Mudança detectada: {diferenca:+d} wei ({evento['tipo']})")
 
                 if callback:
                     callback(evento)
