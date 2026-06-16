@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Arc DevKit is a developer toolkit for the Arc blockchain (by Circle) — EVM-compatible Layer 1 with USDC as gas token and Malachite consensus (<1s finality). Three modules: Dev Copilot (AI code assistant), Agent Starter Kit (economic agent templates), Tx Debugger (transaction analyzer).
 
-Primary language: **Python 3.11+**. Testnet RPC: `https://rpc.arc.io/testnet`. Claude model: `claude-sonnet-4-6`.
+Primary language: **Python 3.11+**. Testnet RPC: `https://rpc.arc.io/testnet`. Chain ID: `7777777`. Claude model: `claude-sonnet-4-6`.
 
 ## Commands
 
@@ -16,19 +16,21 @@ pip install -e ".[dev]"
 
 # Run tests
 pytest
-pytest tests/unit/           # unit tests only
-pytest tests/integration/    # integration tests (requires RPC access)
 pytest -k "test_name"        # single test
 
 # Linting / formatting
 ruff check .
 ruff format .
-mypy arc_devkit/
 
-# CLI entry points
-arc-copilot --help
-arc-agents --help
-arc-debug --help
+# CLI (single entry point with subcommands)
+arcdevkit --help
+arcdevkit status             # check Arc testnet connection
+arcdevkit copilot ask "..."
+arcdevkit agent wallet create
+arcdevkit debug tx <hash>
+
+# REST API server
+uvicorn arc_devkit.api.main:app --reload
 
 # Build docs
 mkdocs serve       # local preview
@@ -39,28 +41,30 @@ mkdocs build       # static build
 
 ```
 arc_devkit/
-├── core/           # Shared: Arc RPC client, USDC gas utils, config loader
-├── copilot/        # Dev Copilot: Anthropic SDK wrapper, prompt templates
-├── agents/         # Agent Starter Kit: base agent, payment/monitor/fx/market templates
-└── debugger/       # Tx Debugger: trace decoder, ABI resolver, error parser
+├── config.py       # Settings dataclass; reads env vars at import time
+├── core/           # connection.py (web3 + PoA middleware), wallet.py
+├── copilot/        # agent.py — DevCopilot class wrapping Anthropic SDK
+├── agents/         # base_agent.py (ABC), payment_agent.py, monitor_agent.py
+├── debugger/       # tx_analyzer.py — RPC fetch + AI analysis via DevCopilot
+├── api/            # FastAPI app: routes/copilot, routes/agents, routes/debugger
+└── cli/            # Typer app: commands/copilot, commands/agent, commands/debug
 ```
 
-`core/client.py` is the foundation — wraps web3.py with Arc-specific defaults (gas in USDC, Malachite finality polling). All modules import from `core`.
+**config.py** is the entry point for all configuration — it loads `.env` via `python-dotenv` and exposes a global `settings` singleton. All modules import from it. Importing `config.py` raises `EnvironmentError` immediately if `ANTHROPIC_API_KEY` or `ARC_RPC_URL` are missing.
 
-The Anthropic client is instantiated once in `copilot/ai.py` and reused via dependency injection. Never create multiple `anthropic.Anthropic()` instances.
+**core/connection.py** wraps web3.py with `ExtraDataToPOAMiddleware` (required for Arc testnet). `get_web3()` is called per-use, not cached globally.
+
+**copilot/agent.py** — `DevCopilot` is instantiated per-call (not a singleton). It holds the Anthropic client as `self._client`. The system prompt with Arc context is embedded directly in the file as `_SYSTEM_PROMPT`.
+
+**debugger/tx_analyzer.py** — `TxAnalyzer.analyze()` fetches via `eth_getTransaction` + `eth_getTransactionReceipt`, then calls `DevCopilot.ask()` internally to generate a natural-language diagnosis.
+
+**agents/base_agent.py** — `BaseAgent` (ABC) resolves `private_key` from its constructor arg → `settings.arc_private_key` → `None` (read-only mode). Subclasses must implement `get_balance()` and `execute()`.
 
 ## Key Conventions
 
-- Arc testnet chain ID: check `core/config.py` for the canonical value
-- Gas is always denominated in USDC (not ETH/wei) — use `core.gas.estimate_usdc_gas()`
-- All monetary values are in USDC with 6 decimal places; use Python `Decimal`, never float
-- `ANTHROPIC_API_KEY` and `ARC_RPC_URL` must be set; `ARC_PRIVATE_KEY` is optional (read-only ops work without it)
-- Tests that hit the live RPC are marked `@pytest.mark.integration` and skipped by default
-
-## Module Notes
-
-**Dev Copilot** — Uses `claude-sonnet-4-6` with streaming. Prompt templates live in `copilot/prompts/`. Adding a new template: create `prompts/<name>.txt`, register in `copilot/registry.py`.
-
-**Agent Starter Kit** — `BaseAgent` in `agents/base.py` handles the run loop, error recovery, and logging. New agent types subclass it. Agent state is persisted to `~/.arc_devkit/agents/<id>.json`.
-
-**Tx Debugger** — Fetches transaction receipts + traces via `debug_traceTransaction`. ABI resolution order: local cache → Sourcify → inline 4-byte selectors. Results are output as JSON or rendered via Rich.
+- All monetary values use Python `Decimal`, never `float`
+- Gas costs and native balances use 18 decimal places (`from_wei(..., "ether")`); USDC ERC-20 balances use 6 decimals — distinguish these carefully
+- `ARC_PRIVATE_KEY` is optional; operations that only read from the chain work without it
+- Tests set env vars in `conftest.py` before any package import to avoid `EnvironmentError` from `config.py`
+- Integration tests (requiring live RPC) are marked `@pytest.mark.integration` and skipped by default
+- REST API CORS is pre-configured for `localhost:3000`, `localhost:5173`, `localhost:8080`
