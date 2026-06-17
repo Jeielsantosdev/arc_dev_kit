@@ -1,203 +1,288 @@
 # Arc DevKit
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Licença MIT](https://img.shields.io/badge/licença-MIT-green.svg)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Testnet](https://img.shields.io/badge/arc-testnet-orange.svg)](https://arc.io)
-[![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow.svg)]()
+[![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)]()
 
-Uma plataforma open source de ferramentas para desenvolvedores que constroem na **Arc blockchain** — a Layer 1 da Circle com USDC como token de gás e finalidade em menos de 1 segundo.
+**Arc DevKit** is a Python toolkit for developers building applications on the **Arc blockchain** — Circle's Layer 1 with USDC as the gas token and sub-second finality.
 
----
-
-## O que é a Arc?
-
-A **Arc** é uma blockchain Layer 1 desenvolvida pela Circle (criadores do USDC), com foco em pagamentos programáveis e agentes econômicos autônomos. Características principais:
-
-- **EVM-compatível** — contratos Solidity funcionam sem modificação
-- **USDC como gás** — sem necessidade de ETH ou token nativo separado
-- **Consenso Malachite** — finalidade em menos de 1 segundo
-- **Circle Agent Stack** — infraestrutura nativa para agentes de IA econômicos
-- **Testnet ativa** desde outubro de 2025; mainnet prevista para o verão de 2026
+It solves a practical problem: Arc has unique characteristics (USDC gas, Malachite consensus, Circle Agent Stack) that don't exist on Ethereum or other EVMs. Without a dedicated kit, developers must dig through scattered documentation, configure Arc-specific middleware, and manually figure out how to estimate costs in USDC, debug reverted transactions, or structure an economic agent. Arc DevKit packages all of that.
 
 ---
 
-## Módulos
+## What is Arc?
+
+**Arc** is a Layer 1 blockchain developed by Circle (creators of USDC), designed for programmable payments and autonomous economic agents.
+
+| Feature | Detail |
+|---|---|
+| **EVM-compatible** | Solidity contracts work without modification |
+| **USDC as gas** | No need for ETH or a separate native token |
+| **Malachite consensus** | Sub-second finality |
+| **Circle Agent Stack** | Native infrastructure for AI economic agents |
+| **Testnet** | Live since October 2025; mainnet expected summer 2026 |
+
+---
+
+## What you can build with Arc DevKit
+
+### On-chain contracts and scripts
+Use the **Dev Copilot** to ask questions, generate Solidity boilerplate, deploy scripts, and Circle ecosystem integrations — all with Arc-specific context built in.
+
+**Examples of what to generate:**
+- Recurring USDC payment contract
+- ERC-20 token deployed to Arc testnet
+- USDC approval and transfer script
+- Circle CCTP (Cross-Chain Transfer Protocol) integration
+
+### Autonomous economic agents
+Use the **Agent Starter Kit** to build agents that interact with Arc programmatically — monitor wallets, execute conditional payments, react to on-chain events.
+
+**Examples of what to build:**
+- Agent that monitors a wallet and triggers actions when USDC is received
+- Recurring payment bot (e.g. monthly subscription in USDC)
+- Balance control agent with threshold alerts
+- Automated payment processing pipeline
+
+### Transaction debugging
+Use the **Tx Debugger** to understand why a transaction failed — without manually decoding raw EVM traces. It fetches the transaction data, decodes the error, and produces a plain-language explanation with a suggested fix.
+
+**Useful for:**
+- Reverted transactions with generic error messages
+- Gas estimation failures in USDC
+- Diagnosing interactions with external contracts
+- Analyzing the real cost of an operation
+
+---
+
+## Modules
 
 ### Dev Copilot
-Assistente de IA para geração de código Arc. Responde a perguntas, gera contratos Solidity, scripts de deploy e interações com o ecossistema Circle.
+AI assistant (Claude Sonnet) with built-in Arc context. Answers technical questions, generates code, and explains Circle ecosystem concepts — without you needing to paste documentation into a chat window.
 
 ### Agent Starter Kit
-Templates prontos para agentes econômicos autônomos: pagamento recorrente, monitoramento de carteira, arbitragem de câmbio e marketplace descentralizado.
+Base classes and templates for economic agents. Includes `PaymentAgent` (USDC payments) and `MonitorAgent` (wallet monitoring). Supports read-only mode (no private key) and write mode (with private key).
 
 ### Tx Debugger
-Ferramenta de análise de transações Arc. Decodifica traces, identifica erros, calcula custos em USDC e sugere correções.
+Fetches the transaction via RPC (`eth_getTransaction` + `eth_getTransactionReceipt`), decodes the result, and calls the Dev Copilot to generate a natural-language analysis with diagnosis and suggestion.
 
 ---
 
-## Instalação
+## Installation
 
-**Pré-requisitos:** Python 3.11 ou superior, pip.
+**Requirements:** Python 3.11 or higher.
 
 ```bash
-# Instalação padrão
+# Standard install via PyPI
 pip install arc-devkit
 
-# Instalação para desenvolvimento (inclui ferramentas de teste e lint)
-git clone https://github.com/seu-usuario/arc-devkit.git
+# Development install (clone + editable mode)
+git clone https://github.com/Jeielsantosdev/arc-devkit.git
 cd arc-devkit
 pip install -e ".[dev]"
 ```
 
-### Configurar variáveis de ambiente
+### Environment variables
 
 ```bash
-# Chave da API Anthropic (obrigatória para o Dev Copilot)
-export ANTHROPIC_API_KEY="sua-chave-aqui"
+# Required — Anthropic API key (used by Dev Copilot and Tx Debugger)
+export ANTHROPIC_API_KEY="your-key-here"
 
-# URL RPC da Arc (padrão: testnet)
+# Arc RPC URL (default: public testnet)
 export ARC_RPC_URL="https://rpc.arc.io/testnet"
 
-# Chave privada da carteira (opcional — necessária apenas para enviar transações)
-export ARC_PRIVATE_KEY="sua-chave-privada"
+# Optional — required only to send transactions (agents in write mode)
+export ARC_PRIVATE_KEY="your-private-key"
+```
+
+Create a `.env` file at the project root so you don't need to export these on every session.
+
+---
+
+## Usage
+
+### Check testnet connection
+
+```bash
+arcdevkit status
+```
+
+```
+Arc testnet: connected
+Chain ID:    7777777
+Latest block: 4821903
+Gas (USDC):  0.000021 USDC/tx
 ```
 
 ---
 
-## Uso Rápido
+### Dev Copilot — ask questions and generate code
 
-### Dev Copilot — Gerar código com IA
+Via CLI:
+
+```bash
+arcdevkit copilot ask "How do I deploy an ERC-20 contract on Arc testnet?"
+arcdevkit copilot ask "What is the difference between ETH gas and USDC gas on Arc?"
+arcdevkit copilot ask "How do I integrate Circle CCTP into my Solidity contract?"
+```
+
+Via Python:
 
 ```python
-from arc_devkit.copilot import DevCopilot
+from arc_devkit.copilot.agent import DevCopilot
 
 copilot = DevCopilot()
 
-# Gerar um contrato de pagamento recorrente
-resposta = copilot.perguntar(
-    "Como implemento pagamento recorrente em USDC na Arc usando Solidity?"
+response = copilot.ask(
+    "How do I implement recurring USDC payments on Arc using Solidity?"
 )
-print(resposta)
-```
-
-Via linha de comando:
-
-```bash
-arc-copilot perguntar "Como fazer deploy de um contrato ERC-20 na Arc testnet?"
+print(response)
 ```
 
 ---
 
-### Agent Starter Kit — Criar agente econômico
+### Agent Starter Kit — create and manage agent wallets
+
+```bash
+# Create a new wallet for an agent
+arcdevkit agent wallet create
+
+# Check balance (USDC and gas)
+arcdevkit agent wallet balance --address 0xYourWalletHere
+```
+
+Via Python — monitor agent:
 
 ```python
-from arc_devkit.agents import AgenteMonitoramento
-from decimal import Decimal
+from arc_devkit.agents.monitor_agent import MonitorAgent
 
-# Monitorar uma carteira e agir ao receber USDC
-agente = AgenteMonitoramento(
-    carteira="0xSuaCarteiraAqui",
-    limiar_usdc=Decimal("100.00"),   # agir ao receber 100 USDC ou mais
-    intervalo_segundos=30,
-)
+agent = MonitorAgent(private_key=None)  # read-only mode, no private key
 
-agente.ao_receber(lambda evento: print(f"Recebido: {evento.valor} USDC"))
-agente.iniciar()
+balance = agent.get_balance("0xYourWalletHere")
+print(f"Balance: {balance} USDC")
 ```
 
-Via linha de comando:
-
-```bash
-arc-agents iniciar monitoramento \
-  --carteira 0xSuaCarteiraAqui \
-  --limiar 100 \
-  --intervalo 30
-```
-
----
-
-### Tx Debugger — Analisar transação
+Via Python — payment agent:
 
 ```python
-from arc_devkit.debugger import TxDebugger
+from arc_devkit.agents.payment_agent import PaymentAgent
+import os
 
-debugger = TxDebugger()
+agent = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
 
-# Analisar uma transação que falhou
-analise = debugger.analisar("0xhash_da_transacao_aqui")
-
-print(analise.status)          # "revertida"
-print(analise.motivo)          # "ERC20: transferência excede saldo"
-print(analise.custo_usdc)      # "0.0012 USDC"
-print(analise.sugestao)        # "Verifique o saldo antes de transferir"
-```
-
-Via linha de comando:
-
-```bash
-arc-debug analisar 0xhash_da_transacao_aqui --formato json
+result = agent.execute({
+    "to": "0xDestinationHere",
+    "amount_usdc": "10.00",
+})
+print(result)
 ```
 
 ---
 
-## Estrutura do Projeto
+### Tx Debugger — analyze transactions
+
+Via CLI:
+
+```bash
+arcdevkit debug tx 0xyour_transaction_hash_here
+```
+
+Via Python:
+
+```python
+from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+analyzer = TxAnalyzer()
+analysis = analyzer.analyze("0xyour_transaction_hash_here")
+print(analysis)
+```
+
+Example output for a reverted transaction:
+
+```
+Status:     reverted
+Error:      ERC20: transfer amount exceeds balance
+Cost:       0.0008 USDC
+Diagnosis:  The sender wallet did not have enough USDC balance at execution
+            time. Check the balance before calling transfer().
+```
+
+---
+
+### REST API
+
+Arc DevKit also exposes a REST API for integrating with other systems or frontends:
+
+```bash
+uvicorn arc_devkit.api.main:app --reload
+```
+
+Available endpoints:
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/copilot/ask` | Send a question to the Dev Copilot |
+| `GET` | `/agents/balance/{address}` | Query wallet balance |
+| `POST` | `/agents/payment` | Execute a USDC payment |
+| `GET` | `/debugger/tx/{hash}` | Analyze a transaction |
+| `GET` | `/debugger/block` | Current block information |
+
+CORS pre-configured for `localhost:3000`, `localhost:5173`, and `localhost:8080`.
+
+---
+
+## Project Structure
 
 ```
 arc_devkit/
-├── core/               # Fundação: cliente RPC, utilitários de gás em USDC
-│   ├── client.py       # Cliente Arc (web3.py com defaults Arc)
-│   ├── gas.py          # Estimativa e conversão de gás em USDC
-│   └── config.py       # Carregamento de configuração e variáveis de ambiente
-│
-├── copilot/            # Módulo Dev Copilot
-│   ├── ai.py           # Wrapper do SDK Anthropic com streaming
-│   ├── cli.py          # Interface de linha de comando (Click)
-│   └── prompts/        # Templates de prompt por tipo de tarefa
-│
-├── agents/             # Módulo Agent Starter Kit
-│   ├── base.py         # Classe base para todos os agentes
-│   ├── pagamento.py    # Agente de pagamento recorrente
-│   ├── monitoramento.py # Agente de monitoramento de carteira
-│   ├── cambio.py       # Agente de arbitragem de câmbio
-│   └── marketplace.py  # Agente de marketplace descentralizado
-│
-└── debugger/           # Módulo Tx Debugger
-    ├── debugger.py     # Orquestrador principal
-    ├── trace.py        # Decodificador de traces de transação
-    ├── abi.py          # Resolução de ABI (cache local + Sourcify)
-    └── cli.py          # Interface de linha de comando (Click)
+├── config.py           # Global config; reads .env and validates required vars
+├── core/
+│   ├── connection.py   # web3.py client with PoA middleware for Arc
+│   └── wallet.py       # Wallet utilities
+├── copilot/
+│   └── agent.py        # DevCopilot — Anthropic SDK wrapper with Arc system prompt
+├── agents/
+│   ├── base_agent.py   # ABC with get_balance() and execute()
+│   ├── payment_agent.py
+│   └── monitor_agent.py
+├── debugger/
+│   └── tx_analyzer.py  # Fetches tx via RPC + analysis with DevCopilot
+├── api/
+│   ├── main.py         # FastAPI app
+│   └── routes/         # copilot.py, agents.py, debugger.py
+└── cli/
+    ├── main.py         # Typer entry point (arcdevkit)
+    └── commands/       # copilot.py, agent.py, debug.py
 ```
 
 ---
 
-## Documentação
-
-- [Começando](docs/getting-started.md) — instalação, configuração e primeiro exemplo
-- [Dev Copilot](docs/modules/dev-copilot.md) — uso completo do assistente de IA
-- [Agent Starter Kit](docs/modules/agent-starter-kit.md) — templates de agentes econômicos
-- [Tx Debugger](docs/modules/tx-debugger.md) — análise e debugging de transações
-
----
-
-## Contribuição
-
-Contribuições são bem-vindas! Leia [CONTRIBUTING.md](CONTRIBUTING.md) para entender o processo.
+## Tests
 
 ```bash
-# Rodar os testes
+# Unit tests (no testnet connection required)
 pytest
 
-# Verificar formatação e tipos
-ruff check . && mypy arc_devkit/
+# Single test
+pytest -k "test_copilot"
+
+# Integration tests (require ARC_RPC_URL and ANTHROPIC_API_KEY)
+pytest -m integration
 ```
 
 ---
 
-## Licença
+## License
 
-MIT — veja [LICENSE](LICENSE) para detalhes.
+MIT — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Sobre a Arc
+## About Arc
 
-A Arc é desenvolvida pela Circle, a empresa por trás do USDC. Para mais informações sobre a blockchain e o ecossistema de agentes econômicos, consulte a documentação oficial da Circle.
+Arc is developed by Circle, the company behind USDC. For more information about the blockchain and the economic agents ecosystem, see Circle's official documentation.
+
+---
+
+> **Actively in development.** Arc DevKit is in early stage — the Arc testnet is still running and mainnet is expected in summer 2026. APIs and interfaces may change between versions. Keep this in mind for production use.
