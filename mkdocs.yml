@@ -1,0 +1,69 @@
+site_name: Arc DevKit
+site_description: Toolkit para desenvolvedores na Arc blockchain — Dev Copilot, Agent Starter Kit e Tx Debugger
+site_author: Arc DevKit Contributors
+site_url: https://Jeielsantosdev.github.io/arc-devkit/
+
+repo_name: Jeielsantosdev/arc-devkit
+repo_url: https://github.com/Jeielsantosdev/arc-devkit
+
+theme:
+  name: material
+  language: pt-BR
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Modo escuro
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Modo claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search:
+      lang: pt
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Início: index.md
+  - Guia de Início: getting-started.md
+  - Módulos:
+    - Dev Copilot: modules/dev-copilot.md
+    - Agent Starter Kit: modules/agent-starter-kit.md
+    - Tx Debugger: modules/tx-debugger.md
+  - CLI Guide: cli-guide.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Jeielsantosdev/arc-devkit
+
+copyright: Copyright &copy; 2026 Arc DevKit Contributors — MIT License
