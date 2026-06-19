@@ -40,7 +40,7 @@ Configure o `.env`:
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
-ARC_RPC_URL=https://rpc.arc.io/testnet
+ARC_RPC_URL=https://arc-testnet.drpc.org
 ```
 
 Verifique a conexão:

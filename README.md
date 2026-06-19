@@ -90,7 +90,7 @@ pip install -e ".[dev]"
 export ANTHROPIC_API_KEY="your-key-here"
 
 # Arc RPC URL (default: public testnet)
-export ARC_RPC_URL="https://rpc.arc.io/testnet"
+export ARC_RPC_URL="https://arc-testnet.drpc.org"
 
 # Optional — required only to send transactions (agents in write mode)
 export ARC_PRIVATE_KEY="your-private-key"
@@ -110,7 +110,7 @@ arcdevkit status
 
 ```
 Arc testnet: connected
-Chain ID:    7777777
+Chain ID:    5042002
 Latest block: 4821903
 Gas (USDC):  0.000021 USDC/tx
 ```

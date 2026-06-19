@@ -64,8 +64,8 @@ Preencha as variáveis:
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...           # obrigatório — console.anthropic.com
-ARC_RPC_URL=https://rpc.arc.io/testnet # obrigatório
-ARC_CHAIN_ID=7777777                   # opcional — padrão já definido
+ARC_RPC_URL=https://arc-testnet.drpc.org # obrigatório
+ARC_CHAIN_ID=5042002                   # opcional — padrão já definido
 ARC_PRIVATE_KEY=0x...                  # opcional — necessário para enviar transações
 LOG_LEVEL=INFO
 ```
@@ -91,7 +91,7 @@ Saída esperada:
 ```
   Conectado   ✓ Sim
   Bloco Atual #1_284_931
-  Chain ID    7777777
+  Chain ID    5042002
   Gas Price   0.001 gwei
 ```
 
@@ -122,7 +122,7 @@ Saída esperada:
 ```
 Conectado à Arc testnet!
 Bloco atual:  #1284931
-Chain ID:     7777777
+Chain ID:     5042002
 Gas price:    0.001 gwei
 ```
 
@@ -299,7 +299,7 @@ cp .env.example .env   # criar .env a partir do exemplo
 ### `Erro de conexão com a testnet`
 
 ```bash
-curl -X POST https://rpc.arc.io/testnet \
+curl -X POST https://arc-testnet.drpc.org \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```

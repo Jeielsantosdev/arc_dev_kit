@@ -5,7 +5,7 @@ Executar:
     python examples/01_check_connection.py
 
 Requer:
-    ARC_RPC_URL no .env (ex: https://rpc.arc.io/testnet)
+    ARC_RPC_URL no .env (ex: https://arc-testnet.drpc.org)
 """
 
 from arc_devkit.core.connection import check_connection, get_web3

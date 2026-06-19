@@ -9,8 +9,8 @@ import os
 
 # Definir variáveis de ambiente de teste antes de qualquer import do pacote
 os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key-apenas-para-testes")
-os.environ.setdefault("ARC_RPC_URL", "https://rpc.arc.io/testnet")
-os.environ.setdefault("ARC_CHAIN_ID", "7777777")
+os.environ.setdefault("ARC_RPC_URL", "https://arc-testnet.drpc.org")
+os.environ.setdefault("ARC_CHAIN_ID", "5042002")
 os.environ.setdefault("LOG_LEVEL", "WARNING")  # reduzir ruído nos testes
 
 from unittest.mock import MagicMock, patch  # noqa: E402

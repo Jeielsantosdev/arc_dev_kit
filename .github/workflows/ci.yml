@@ -49,7 +49,7 @@ jobs:
       - name: Run unit tests
         env:
           ANTHROPIC_API_KEY: sk-ant-test-key
-          ARC_RPC_URL: https://rpc.arc.io/testnet
-          ARC_CHAIN_ID: "7777777"
+          ARC_RPC_URL: https://arc-testnet.drpc.org
+          ARC_CHAIN_ID: "5042002"
           LOG_LEVEL: WARNING
         run: pytest --tb=short -q

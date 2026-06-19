@@ -33,10 +33,10 @@ Preencha as variáveis obrigatórias:
 ```dotenv
 # Obrigatórias
 ANTHROPIC_API_KEY=sk-ant-...      # console.anthropic.com
-ARC_RPC_URL=https://rpc.arc.io/testnet
+ARC_RPC_URL=https://arc-testnet.drpc.org
 
 # Opcionais
-ARC_CHAIN_ID=7777777              # padrão já definido
+ARC_CHAIN_ID=5042002              # padrão já definido
 ARC_PRIVATE_KEY=0x...             # necessário para enviar transações
 LOG_LEVEL=INFO
 ```
@@ -58,7 +58,7 @@ Saída esperada:
 ```
   Conectado   ✓ Sim
   Bloco Atual #1_284_931
-  Chain ID    7777777
+  Chain ID    5042002
   Gas Price   0.001 gwei
 ```
 
@@ -308,7 +308,7 @@ arcdevkit agent pay 0xDest... 50.0 --send
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | Sim | — | Chave da API Anthropic (Dev Copilot) |
 | `ARC_RPC_URL` | Sim | — | URL do nó RPC da Arc |
-| `ARC_CHAIN_ID` | Não | `7777777` | Chain ID da Arc |
+| `ARC_CHAIN_ID` | Não | `5042002` | Chain ID da Arc |
 | `ARC_PRIVATE_KEY` | Não | — | Chave privada para assinar transações |
 | `LOG_LEVEL` | Não | `INFO` | Nível de log (`DEBUG`, `INFO`, `WARNING`) |
 

@@ -56,7 +56,7 @@ def _load_settings() -> Settings:
     return Settings(
         anthropic_api_key=api_key,
         arc_rpc_url=rpc_url,
-        arc_chain_id=int(os.getenv("ARC_CHAIN_ID", "7777777")),
+        arc_chain_id=int(os.getenv("ARC_CHAIN_ID", "5042002")),
         arc_private_key=os.getenv("ARC_PRIVATE_KEY", "").strip() or None,
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
     )
