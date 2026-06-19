@@ -2,6 +2,8 @@
 
 Este guia leva você do zero ao primeiro exemplo funcional na Arc testnet em menos de 10 minutos.
 
+> **Versão atual:** 0.1.0 — MVP. As classes e métodos documentados aqui refletem o código disponível hoje.
+
 ---
 
 ## Pré-requisitos
@@ -50,249 +52,227 @@ A flag `-e` instala o pacote em modo "editável" — alterações no código ref
 
 ---
 
-## Configuração do Ambiente
+## Configuração
 
-O Arc DevKit usa variáveis de ambiente para configuração sensível. **Nunca coloque chaves privadas ou API keys diretamente no código.**
-
-### Opção A: Arquivo `.env` (recomendado para desenvolvimento)
-
-Crie um arquivo `.env` na raiz do projeto:
+Crie um arquivo `.env` na raiz do projeto (nunca commite este arquivo):
 
 ```bash
-# .env — NÃO adicione este arquivo ao git!
-
-# Chave da API Anthropic (obrigatória para o Dev Copilot)
-ANTHROPIC_API_KEY=sk-ant-...
-
-# RPC da Arc — use testnet para desenvolvimento
-ARC_RPC_URL=https://rpc.arc.io/testnet
-
-# Chave privada da sua carteira (necessária para enviar transações)
-# Formato: chave privada hexadecimal sem o prefixo 0x
-ARC_PRIVATE_KEY=sua_chave_privada_aqui
+cp .env.example .env
 ```
 
-Adicione `.env` ao seu `.gitignore`:
+Preencha as variáveis:
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-...           # obrigatório — console.anthropic.com
+ARC_RPC_URL=https://rpc.arc.io/testnet # obrigatório
+ARC_CHAIN_ID=7777777                   # opcional — padrão já definido
+ARC_PRIVATE_KEY=0x...                  # opcional — necessário para enviar transações
+LOG_LEVEL=INFO
+```
+
+> `ARC_PRIVATE_KEY` é opcional — leitura da blockchain funciona sem ela. Nunca use a carteira principal aqui; crie uma carteira dedicada para testes.
+
+Adicione `.env` ao `.gitignore`:
 
 ```bash
 echo ".env" >> .gitignore
 ```
 
-### Opção B: Variáveis de ambiente do sistema
-
-```bash
-# Linux / macOS
-export ANTHROPIC_API_KEY="sk-ant-..."
-export ARC_RPC_URL="https://rpc.arc.io/testnet"
-export ARC_PRIVATE_KEY="sua_chave_privada"
-
-# Para persistir entre sessões, adicione ao ~/.bashrc ou ~/.zshrc
-```
-
-### Verificar configuração
-
-```bash
-arc-copilot status
-# Saída esperada:
-# ✓ ANTHROPIC_API_KEY configurada
-# ✓ ARC_RPC_URL: https://rpc.arc.io/testnet
-# ✓ Conexão com Arc testnet: OK (bloco #123456)
-# ⚠ ARC_PRIVATE_KEY: não configurada (modo somente leitura)
-```
-
 ---
 
-## Conectar à Arc Testnet
-
-### Verificar conexão via código
-
-```python
-from arc_devkit.core.client import ArcClient
-
-# O cliente lê ARC_RPC_URL do ambiente automaticamente
-cliente = ArcClient()
-
-# Verificar se a conexão está funcionando
-if cliente.conectado():
-    bloco = cliente.bloco_atual()
-    print(f"Conectado! Bloco atual: #{bloco}")
-else:
-    print("Erro: não foi possível conectar à testnet")
-```
-
-### Verificar saldo USDC
-
-```python
-from arc_devkit.core.client import ArcClient
-from decimal import Decimal
-
-cliente = ArcClient()
-
-# Consultar saldo de uma carteira
-carteira = "0xSuaCarteiraAqui"
-saldo = cliente.saldo_usdc(carteira)
-
-print(f"Saldo: {saldo} USDC")
-```
-
-### Verificar conexão via CLI
+## Verificar conexão com a testnet
 
 ```bash
-# Verificar status da conexão
-arc-debug status
-
-# Consultar saldo de uma carteira
-arc-debug saldo 0xSuaCarteiraAqui
-```
-
----
-
-## Primeiro Exemplo: Consultar a Blockchain
-
-Vamos criar um script completo que conecta à Arc testnet e busca informações básicas.
-
-Crie o arquivo `meu_primeiro_script.py`:
-
-```python
-"""
-Meu primeiro script Arc DevKit.
-Este exemplo demonstra como conectar à testnet e buscar informações básicas.
-"""
-
-from arc_devkit.core.client import ArcClient
-from arc_devkit.core.gas import estimativa_gas_usdc
-
-def main():
-    # Conectar à Arc testnet
-    cliente = ArcClient()
-
-    # Verificar a conexão
-    if not cliente.conectado():
-        print("Erro: não foi possível conectar à Arc testnet.")
-        print("Verifique se ARC_RPC_URL está configurada corretamente.")
-        return
-
-    print("✓ Conectado à Arc testnet!")
-
-    # Buscar informações do bloco mais recente
-    bloco = cliente.bloco_atual()
-    info_bloco = cliente.info_bloco(bloco)
-
-    print(f"\n--- Bloco Atual ---")
-    print(f"Número:     #{bloco}")
-    print(f"Hash:       {info_bloco['hash'][:20]}...")
-    print(f"Timestamp:  {info_bloco['timestamp']}")
-    print(f"Transações: {len(info_bloco['transactions'])}")
-
-    # Estimar custo de uma transferência simples em USDC
-    custo = estimativa_gas_usdc(tipo_tx="transferencia_simples")
-    print(f"\n--- Estimativa de Gás ---")
-    print(f"Transferência simples: ~{custo} USDC")
-
-if __name__ == "__main__":
-    main()
-```
-
-Executar:
-
-```bash
-python meu_primeiro_script.py
+arcdevkit status
 ```
 
 Saída esperada:
 
 ```
-✓ Conectado à Arc testnet!
+  Conectado   ✓ Sim
+  Bloco Atual #1_284_931
+  Chain ID    7777777
+  Gas Price   0.001 gwei
+```
 
---- Bloco Atual ---
-Número:     #89432
-Hash:       0x4a3f9c2b1e8d...
-Timestamp:  2026-06-07 14:32:01
-Transações: 12
+---
 
---- Estimativa de Gás ---
-Transferência simples: ~0.0008 USDC
+## Primeiro Exemplo: Conectar e ler a blockchain
+
+```python
+from arc_devkit.core.connection import get_web3, check_connection
+
+# Testar conexão
+if check_connection():
+    print("Conectado à Arc testnet!")
+
+# Ler dados da rede
+w3 = get_web3()
+bloco = w3.eth.block_number
+chain_id = w3.eth.chain_id
+gas_price = w3.eth.gas_price
+
+print(f"Bloco atual:  #{bloco}")
+print(f"Chain ID:     {chain_id}")
+print(f"Gas price:    {w3.from_wei(gas_price, 'gwei')} gwei")
+```
+
+Saída esperada:
+
+```
+Conectado à Arc testnet!
+Bloco atual:  #1284931
+Chain ID:     7777777
+Gas price:    0.001 gwei
 ```
 
 ---
 
 ## Segundo Exemplo: Usar o Dev Copilot
 
-O Dev Copilot usa a API da Anthropic para responder perguntas sobre desenvolvimento na Arc.
+O Dev Copilot usa `claude-sonnet-4-6` com contexto especializado em Arc.
 
 ```python
-"""
-Exemplo de uso do Dev Copilot para gerar código.
-Requer ANTHROPIC_API_KEY configurada.
-"""
+from arc_devkit.copilot.agent import DevCopilot
 
-from arc_devkit.copilot import DevCopilot
+copilot = DevCopilot()
 
-def main():
-    copilot = DevCopilot()
+resposta = copilot.ask(
+    "Como faço para verificar o saldo USDC de uma carteira na Arc testnet?"
+)
+print(resposta)
+```
 
-    # Fazer uma pergunta sobre a Arc
-    pergunta = """
-    Como faço para verificar o saldo USDC de uma carteira
-    usando web3.py na Arc testnet?
-    """
+Via CLI:
 
-    print("Perguntando ao Dev Copilot...\n")
-
-    # A resposta é transmitida em tempo real (streaming)
-    for trecho in copilot.perguntar_stream(pergunta):
-        print(trecho, end="", flush=True)
-
-    print("\n\nPronto!")
-
-if __name__ == "__main__":
-    main()
+```bash
+arcdevkit copilot ask "Como criar um contrato ERC-20 na Arc?"
 ```
 
 ---
 
-## Terceiro Exemplo: Analisar uma Transação
+## Terceiro Exemplo: Criar carteira e consultar saldo
+
+```bash
+# Criar nova carteira
+arcdevkit agent wallet create
+
+# Consultar saldo
+arcdevkit agent wallet balance --address 0xSuaCarteiraAqui
+```
+
+Via Python:
 
 ```python
-"""
-Exemplo de uso do Tx Debugger para analisar uma transação.
-"""
+from arc_devkit.agents.monitor_agent import MonitorAgent
 
-from arc_devkit.debugger import TxDebugger
+# Modo somente leitura (sem chave privada necessária)
+agente = MonitorAgent(watched_address="0xSuaCarteiraAqui")
+saldo = agente.get_balance()
 
-def main():
-    debugger = TxDebugger()
-
-    # Hash de uma transação na testnet (substitua por um hash real)
-    tx_hash = "0x1234567890abcdef..."
-
-    print(f"Analisando transação {tx_hash[:20]}...\n")
-
-    analise = debugger.analisar(tx_hash)
-
-    print(f"Status:     {analise.status}")
-    print(f"Tipo:       {analise.tipo}")
-    print(f"Custo gás:  {analise.custo_usdc} USDC")
-
-    if analise.erro:
-        print(f"\nErro detectado: {analise.motivo}")
-        print(f"Sugestão:       {analise.sugestao}")
-
-if __name__ == "__main__":
-    main()
+print(f"Endereço: {saldo['address']}")
+print(f"Saldo:    {saldo['balance_eth']} ETH/USDC")
 ```
+
+---
+
+## Quarto Exemplo: Estimar custo de gás
+
+```python
+from arc_devkit.core.gas import estimate_transfer
+
+estimativa = estimate_transfer(
+    to="0xDestinatarioAqui",
+    amount_usdc=10.0,
+)
+
+print(f"Gas limit:  {estimativa['gas_limit']}")
+print(f"Gas price:  {estimativa['gas_price_gwei']} gwei")
+print(f"Custo gás:  {estimativa['custo_usdc']} USDC")
+```
+
+Via CLI:
+
+```bash
+arcdevkit debug estimate 0xDestinatario... 10.0
+```
+
+---
+
+## Quinto Exemplo: Enviar pagamento
+
+```python
+import os
+from arc_devkit.agents.payment_agent import PaymentAgent
+
+agente = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
+
+# Modo seguro: assina sem enviar (padrão — para revisão)
+resultado = agente.execute(to="0xDestino...", amount_usdc=5.0)
+print(resultado)  # status: "assinada", raw_transaction: "0x..."
+
+# Enviar à rede:
+resultado = agente.execute(to="0xDestino...", amount_usdc=5.0, enviar=True)
+print(resultado)  # status: "enviada", tx_hash: "0x..."
+```
+
+Via CLI:
+
+```bash
+arcdevkit agent pay 0xDestino... 5.0          # assinar sem enviar
+arcdevkit agent pay 0xDestino... 5.0 --send   # enviar à rede
+```
+
+---
+
+## Sexto Exemplo: Analisar uma transação
+
+```python
+from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+analyzer = TxAnalyzer()
+resultado = analyzer.analyze("0xHashDaTransacao...")
+
+print(f"Status:  {resultado['status']}")
+print(f"Custo:   {resultado['custo_usdc']} USDC")
+print(f"Resumo:\n{resultado['resumo']}")
+```
+
+Via CLI:
+
+```bash
+arcdevkit debug tx 0xHashDaTransacao...
+arcdevkit debug tx 0xHashDaTransacao... --json   # saída JSON bruta
+```
+
+---
+
+## API REST (opcional)
+
+Todos os módulos também estão disponíveis via HTTP:
+
+```bash
+uvicorn arc_devkit.api.main:app --reload
+# Acesse: http://localhost:8000/docs
+```
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/copilot/ask` | Consultar o Dev Copilot |
+| `GET` | `/agents/balance/{address}` | Saldo de uma carteira |
+| `POST` | `/agents/payment` | Executar pagamento |
+| `GET` | `/debugger/tx/{hash}` | Analisar transação |
+| `GET` | `/debugger/block` | Bloco atual |
 
 ---
 
 ## Estrutura de um Projeto Arc
 
-Para projetos maiores, recomendamos esta estrutura:
-
 ```
 meu-projeto-arc/
-├── .env                    # Variáveis de ambiente (não versionar!)
+├── .env                    # Variáveis de ambiente (nunca versionar!)
 ├── .gitignore
-├── pyproject.toml          # Configuração do pacote Python
+├── pyproject.toml
 ├── README.md
 ├── src/
 │   └── meu_projeto/
@@ -309,19 +289,14 @@ meu-projeto-arc/
 
 ## Solução de Problemas
 
-### `ModuleNotFoundError: No module named 'arc_devkit'`
-
-O pacote não está instalado. Execute:
+### `EnvironmentError: Variáveis obrigatórias não configuradas`
 
 ```bash
-pip install arc-devkit
-# ou, para desenvolvimento:
-pip install -e ".[dev]"
+cp .env.example .env   # criar .env a partir do exemplo
+# preencher ANTHROPIC_API_KEY e ARC_RPC_URL
 ```
 
-### `Erro de conexão: não foi possível alcançar https://rpc.arc.io/testnet`
-
-Verifique sua conexão com a internet e se a URL da RPC está correta:
+### `Erro de conexão com a testnet`
 
 ```bash
 curl -X POST https://rpc.arc.io/testnet \
@@ -329,22 +304,25 @@ curl -X POST https://rpc.arc.io/testnet \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```
 
-### `AuthenticationError: ANTHROPIC_API_KEY inválida`
-
-Verifique se a variável está configurada corretamente:
+### `AuthenticationError` no Dev Copilot
 
 ```bash
-echo $ANTHROPIC_API_KEY   # Deve mostrar sua chave (começa com sk-ant-)
+echo $ANTHROPIC_API_KEY   # deve começar com sk-ant-
 ```
 
-### `InsufficientFundsError: saldo USDC insuficiente para gás`
+### `ModuleNotFoundError: No module named 'arc_devkit'`
 
-Você precisa de USDC de teste. Acesse o faucet da Arc testnet para obter USDC gratuito para testes.
+```bash
+pip install -e ".[dev]"   # modo desenvolvimento
+# ou
+pip install arc-devkit    # instalação padrão
+```
 
 ---
 
 ## Próximos Passos
 
-- [Dev Copilot](modules/dev-copilot.md) — explore todas as funcionalidades do assistente de IA
-- [Agent Starter Kit](modules/agent-starter-kit.md) — crie seu primeiro agente econômico
-- [Tx Debugger](modules/tx-debugger.md) — aprenda a debugar transações complexas
+- [Dev Copilot](modules/dev-copilot.md) — assistente de IA com contexto Arc
+- [Agent Starter Kit](modules/agent-starter-kit.md) — agentes de pagamento e monitoramento
+- [Tx Debugger](modules/tx-debugger.md) — análise de transações com IA
+- [CLI Guide](../cli-guide.md) — referência completa de todos os comandos
