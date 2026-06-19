@@ -51,8 +51,10 @@ dev = [
 ]
 
 [project.scripts]
-# Comando principal: `arcdevkit <subcomando>`
+# CLI agrupada: `arcdevkit copilot ask`, `arcdevkit agent pay`, etc.
 arcdevkit = "arc_devkit.cli.main:app"
+# CLI direta: `arc status`, `arc ask`, `arc balance`, `arc codegen`, etc.
+arc = "arc_devkit.cli.flat:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
