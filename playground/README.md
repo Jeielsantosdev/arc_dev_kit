@@ -111,6 +111,51 @@ Os arquivos gerados ficam em `generated/` (ignorado pelo git).
 
 ---
 
+### Demo da CLI do arc-devkit (`demo_cli.sh`)
+
+Roda todos os comandos do `arcdevkit` em sequência, num fluxo completo de desenvolvimento:
+
+```bash
+bash demo_cli.sh                # roda tudo (inclui monitoramento)
+bash demo_cli.sh --skip-monitor # pula o passo de polling
+```
+
+Passos executados:
+
+```
+PASSO 1 — arcdevkit --version + arcdevkit status
+PASSO 2 — arcdevkit agent create-wallet
+PASSO 3 — arcdevkit agent balance <addr>
+PASSO 4 — arcdevkit copilot ask "..." (2 perguntas)
+PASSO 5 — arcdevkit debug estimate <to> <amount> (2 cenários)
+PASSO 6 — arcdevkit agent pay <to> <amount>  (modo seguro, sem --send)
+PASSO 7 — arcdevkit agent monitor <addr> --interval 5 --max 3
+```
+
+Referência rápida de todos os comandos da CLI:
+
+```bash
+arcdevkit --version
+arcdevkit status
+
+arcdevkit copilot ask "<pergunta>"
+
+arcdevkit agent create-wallet
+arcdevkit agent balance <endereço>
+arcdevkit agent pay <to> <valor>
+arcdevkit agent pay <to> <valor> --send          # envia de verdade
+arcdevkit agent pay <to> <valor> --send --key <pk>
+arcdevkit agent monitor <endereço>
+arcdevkit agent monitor <endereço> --interval 5 --max 10
+
+arcdevkit debug tx <hash>
+arcdevkit debug tx <hash> --json
+arcdevkit debug estimate <to> <valor>
+arcdevkit debug estimate <to> <valor> --from <remetente>
+```
+
+---
+
 ## Estrutura
 
 ```
@@ -118,7 +163,8 @@ playground/
 ├── README.md            # este arquivo
 ├── requirements.txt     # arc-devkit>=0.2.1
 ├── .gitignore           # ignora generated/ e .env
-├── arc_cli.py           # CLI com subcomandos (status/ask/balance/gas/debug/codegen)
+├── demo_cli.sh          # demo completo da CLI arcdevkit (7 passos)
+├── arc_cli.py           # CLI própria com subcomandos (usa SDK via Python)
 ├── arc_explorer.py      # explorador interativo com menu
 ├── arc_codegen.py       # gerador de código com IA (utilitário focado)
 └── generated/           # scripts gerados (criado automaticamente)
