@@ -8,12 +8,13 @@ O objetivo é mostrar como um desenvolvedor externo consumiria o SDK para constr
 
 ## O que é
 
-Dois scripts de terminal que cobrem os três módulos principais do arc-devkit:
+Três scripts de terminal que cobrem os três módulos principais do arc-devkit:
 
-| Script | O que faz |
-|---|---|
-| `arc_explorer.py` | Explorador interativo da Arc testnet — conecta, mostra status da rede e oferece um menu para consultar IA, saldos, gás e transações |
-| `arc_codegen.py` | Gerador de código com IA — você descreve em português o que quer construir na Arc e o DevCopilot escreve o script Python completo, salvo em `generated/` |
+| Script | Estilo | O que faz |
+|---|---|---|
+| `arc_cli.py` | CLI com subcomandos | Interface principal — `status`, `ask`, `balance`, `gas`, `debug`, `codegen` como subcomandos independentes |
+| `arc_explorer.py` | Menu interativo | Explorador livre — conecta na testnet e oferece um menu para experimentar todos os módulos em sessão contínua |
+| `arc_codegen.py` | Utilitário focado | Gerador de código com IA — descreva o que quer construir e receba o script Python pronto, salvo em `generated/` |
 
 ---
 
@@ -62,16 +63,51 @@ pip install -r requirements.txt
 # 2. Configurar variáveis de ambiente
 cp ../.env.example .env
 # Preencha ANTHROPIC_API_KEY e ARC_RPC_URL no arquivo .env
-
-# 3. Explorador interativo
-python arc_explorer.py
-
-# 4. Gerador de código
-python arc_codegen.py
-python arc_codegen.py --topic "monitorar carteira e alertar quando o saldo mudar"
 ```
 
-Os arquivos gerados pelo codegen ficam em `generated/` (ignorado pelo git).
+### CLI com subcomandos (`arc_cli.py`)
+
+```bash
+# Ver todos os comandos
+python arc_cli.py --help
+
+# Status da rede
+python arc_cli.py status
+
+# Perguntar ao DevCopilot
+python arc_cli.py ask "como fazer deploy de contrato na Arc?"
+python arc_cli.py ask "qual a diferença entre gas nativo e USDC ERC-20?" --raw
+
+# Saldo de carteira
+python arc_cli.py balance 0xAbC123...
+
+# Estimativa de gás
+python arc_cli.py gas 0xDest... 10.5
+python arc_cli.py gas 0xDest... 10.5 --from 0xRemetente...
+
+# Analisar transação
+python arc_cli.py debug 0xTxHash...
+
+# Gerar código com IA
+python arc_cli.py codegen "monitorar carteira e alertar quando saldo mudar"
+python arc_cli.py codegen "criar agente de pagamento automático" --no-save
+```
+
+### Explorador interativo (`arc_explorer.py`)
+
+```bash
+python arc_explorer.py
+# Menu com opções [1-4] para navegar entre os módulos
+```
+
+### Gerador de código dedicado (`arc_codegen.py`)
+
+```bash
+python arc_codegen.py
+python arc_codegen.py --topic "criar agente que envia USDC periodicamente"
+```
+
+Os arquivos gerados ficam em `generated/` (ignorado pelo git).
 
 ---
 
@@ -82,7 +118,8 @@ playground/
 ├── README.md            # este arquivo
 ├── requirements.txt     # arc-devkit>=0.2.1
 ├── .gitignore           # ignora generated/ e .env
-├── arc_explorer.py      # explorador interativo
-├── arc_codegen.py       # gerador de código com IA
+├── arc_cli.py           # CLI com subcomandos (status/ask/balance/gas/debug/codegen)
+├── arc_explorer.py      # explorador interativo com menu
+├── arc_codegen.py       # gerador de código com IA (utilitário focado)
 └── generated/           # scripts gerados (criado automaticamente)
 ```
