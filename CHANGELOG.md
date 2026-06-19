@@ -8,13 +8,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Planned for v0.2.0
-- `DevCopilot`: streaming de resposta e histórico de conversa em memória
-- `PaymentAgent`: callbacks ao_sucesso/ao_falha, retry em falha
-- `MonitorAgent`: suporte a múltiplas carteiras simultâneas
-- `TxAnalyzer`: decodificação de revert reason e ABI local
-- Testes de integração marcados `@pytest.mark.integration`
-- Publicação automática no PyPI via GitHub Actions em tags
+---
+
+## [0.2.1] — 2026-06-18
+
+### Added
+- **`examples/`** — 5 scripts executáveis prontos para uso: `01_check_connection.py`, `02_copilot_ask.py`, `03_estimate_gas.py`, `04_monitor_wallet.py`, `05_debug_tx.py`
+- **`.github/workflows/ci.yml`** — pipeline de CI com lint (ruff) e testes unitários em Python 3.11, 3.12 e 3.13
+- **`Makefile`** — atalhos de desenvolvimento: `make install`, `make test`, `make lint`, `make format`, `make build`, `make docs`
+- **`mkdocs.yml`** — configuração do site de documentação com tema Material
+
+### Changed
+- **`README.md`** — reescrito em inglês com exemplos de instalação, uso da CLI, API REST e snippets de código
+- **`docs/`** — documentação dos módulos alinhada com a API real do código v0.1/v0.2
+
+### Fixed
+- **`.env.example`** — token PyPI de teste removido do arquivo de exemplo (segurança)
 
 ---
 
@@ -48,5 +57,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-[Unreleased]: https://github.com/Jeielsantosdev/arc-devkit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Jeielsantosdev/arc-devkit/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Jeielsantosdev/arc-devkit/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/Jeielsantosdev/arc-devkit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jeielsantosdev/arc-devkit/releases/tag/v0.1.0
