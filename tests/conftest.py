@@ -1,17 +1,17 @@
 """
-Fixtures compartilhadas entre todos os testes.
+Shared fixtures for all tests.
 
-As variáveis de ambiente são definidas ANTES de qualquer import do arc_devkit
-para evitar EnvironmentError no carregamento de config.py.
+Environment variables are set BEFORE any arc_devkit import to avoid
+EnvironmentError from config.py at load time.
 """
 
 import os
 
-# Definir variáveis de ambiente de teste antes de qualquer import do pacote
-os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key-apenas-para-testes")
+# Set test environment variables before any package import
+os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key-for-tests-only")
 os.environ.setdefault("ARC_RPC_URL", "https://arc-testnet.drpc.org")
 os.environ.setdefault("ARC_CHAIN_ID", "5042002")
-os.environ.setdefault("LOG_LEVEL", "WARNING")  # reduzir ruído nos testes
+os.environ.setdefault("LOG_LEVEL", "WARNING")  # reduce noise during tests
 
 from unittest.mock import MagicMock, patch  # noqa: E402
 
@@ -21,45 +21,45 @@ import pytest  # noqa: E402
 @pytest.fixture
 def mock_web3():
     """
-    Mock completo do cliente web3.py para testes unitários.
+    Full web3.py client mock for unit tests.
 
-    Elimina a necessidade de conexão real com a Arc testnet,
-    permitindo que os testes rodem sem acesso à rede.
+    Removes the need for a real Arc testnet connection,
+    allowing tests to run without network access.
     """
     with patch("arc_devkit.core.connection.Web3") as MockWeb3:
-        # Simular instância conectada
-        instancia = MagicMock()
-        instancia.is_connected.return_value = True
-        instancia.eth.block_number = 89_432
-        instancia.eth.chain_id = 7_777_777
-        instancia.eth.gas_price = 1_000_000_000  # 1 gwei
-        instancia.from_wei.return_value = "0.001"
+        # Simulate a connected instance
+        instance = MagicMock()
+        instance.is_connected.return_value = True
+        instance.eth.block_number = 89_432
+        instance.eth.chain_id = 7_777_777
+        instance.eth.gas_price = 1_000_000_000  # 1 gwei
+        instance.from_wei.return_value = "0.001"
 
-        MockWeb3.return_value = instancia
+        MockWeb3.return_value = instance
         MockWeb3.HTTPProvider = MagicMock()
 
-        yield instancia
+        yield instance
 
 
 @pytest.fixture
 def mock_anthropic():
     """
-    Mock do cliente Anthropic para evitar chamadas reais à API.
+    Anthropic client mock to avoid real API calls.
 
-    Substitui anthropic.Anthropic com um MagicMock que retorna
-    uma resposta simulada, sem consumir créditos da API.
+    Replaces anthropic.Anthropic with a MagicMock that returns a
+    simulated response without consuming API credits.
     """
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic") as MockAnthropic:
-        instancia = MagicMock()
+        instance = MagicMock()
 
-        # Simular estrutura da resposta real: message.content[0].text
-        conteudo = MagicMock()
-        conteudo.text = "Resposta simulada do Dev Copilot para testes."
+        # Simulate real response structure: message.content[0].text
+        content = MagicMock()
+        content.text = "Simulated Dev Copilot response for tests."
 
-        mensagem = MagicMock()
-        mensagem.content = [conteudo]
+        message = MagicMock()
+        message.content = [content]
 
-        instancia.messages.create.return_value = mensagem
-        MockAnthropic.return_value = instancia
+        instance.messages.create.return_value = message
+        MockAnthropic.return_value = instance
 
-        yield instancia
+        yield instance

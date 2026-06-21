@@ -1,74 +1,74 @@
-"""Testes para o módulo arc_devkit.copilot.agent."""
+"""Tests for the arc_devkit.copilot.agent module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 def test_ask_retorna_string_nao_vazia(mock_anthropic):
-    """DevCopilot.ask() deve retornar uma string não vazia."""
+    """DevCopilot.ask() must return a non-empty string."""
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
         from arc_devkit.copilot.agent import DevCopilot
 
         copilot = DevCopilot()
-        resposta = copilot.ask("O que é a Arc blockchain?")
+        response = copilot.ask("What is the Arc blockchain?")
 
-    assert isinstance(resposta, str)
-    assert len(resposta) > 0
+    assert isinstance(response, str)
+    assert len(response) > 0
 
 
 def test_ask_envia_system_prompt(mock_anthropic):
-    """DevCopilot.ask() deve incluir o system prompt em todas as chamadas."""
+    """DevCopilot.ask() must include the system prompt in every call."""
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
         from arc_devkit.copilot.agent import DevCopilot
 
         copilot = DevCopilot()
-        copilot.ask("Pergunta de teste")
+        copilot.ask("Test question")
 
-    # Verificar que messages.create foi chamado com 'system'
-    chamada = mock_anthropic.messages.create.call_args
-    assert chamada is not None
+    # Verify that messages.create was called with 'system'
+    call = mock_anthropic.messages.create.call_args
+    assert call is not None
 
-    kwargs = chamada.kwargs
-    assert "system" in kwargs, "O parâmetro 'system' deve estar presente na chamada"
-    assert "Arc" in kwargs["system"], "O system prompt deve mencionar a Arc blockchain"
+    kwargs = call.kwargs
+    assert "system" in kwargs, "The 'system' parameter must be present in the call"
+    assert "Arc" in kwargs["system"], "The system prompt must mention the Arc blockchain"
 
 
 def test_ask_usa_modelo_correto(mock_anthropic):
-    """DevCopilot.ask() deve usar o modelo claude-sonnet-4-6."""
+    """DevCopilot.ask() must use the claude-sonnet-4-6 model."""
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
         from arc_devkit.copilot.agent import DevCopilot
 
         copilot = DevCopilot()
-        copilot.ask("Teste de modelo")
+        copilot.ask("Model test")
 
-    chamada = mock_anthropic.messages.create.call_args
-    assert chamada.kwargs.get("model") == "claude-sonnet-4-6"
+    call = mock_anthropic.messages.create.call_args
+    assert call.kwargs.get("model") == "claude-sonnet-4-6"
 
 
 def test_ask_respeita_max_tokens(mock_anthropic):
-    """DevCopilot.ask() deve enviar max_tokens na requisição."""
+    """DevCopilot.ask() must send max_tokens in the request."""
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
         from arc_devkit.copilot.agent import DevCopilot
 
         copilot = DevCopilot()
-        copilot.ask("Teste de max_tokens")
+        copilot.ask("max_tokens test")
 
-    chamada = mock_anthropic.messages.create.call_args
-    assert "max_tokens" in chamada.kwargs
-    assert chamada.kwargs["max_tokens"] == DevCopilot.MAX_TOKENS
+    call = mock_anthropic.messages.create.call_args
+    assert "max_tokens" in call.kwargs
+    assert call.kwargs["max_tokens"] == DevCopilot.MAX_TOKENS
 
 
 def test_ask_envia_prompt_do_usuario(mock_anthropic):
-    """DevCopilot.ask() deve enviar o prompt do usuário na lista de messages."""
-    prompt_teste = "Como criar uma carteira na Arc testnet?"
+    """DevCopilot.ask() must send the user prompt in the messages list."""
+    test_prompt = "How do I create a wallet on the Arc testnet?"
 
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
         from arc_devkit.copilot.agent import DevCopilot
 
         copilot = DevCopilot()
-        copilot.ask(prompt_teste)
+        copilot.ask(test_prompt)
 
-    chamada = mock_anthropic.messages.create.call_args
-    messages = chamada.kwargs.get("messages", [])
+    call = mock_anthropic.messages.create.call_args
+    messages = call.kwargs.get("messages", [])
     assert len(messages) == 1
     assert messages[0]["role"] == "user"
-    assert messages[0]["content"] == prompt_teste
+    assert messages[0]["content"] == test_prompt

@@ -1,7 +1,7 @@
-"""Testes unitários para os endpoints da API REST."""
+"""Unit tests for the REST API endpoints."""
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client():
-    """Cliente de teste FastAPI sem dependências externas."""
+    """FastAPI test client with no external dependencies."""
     from arc_devkit.api.main import app
 
     return TestClient(app)
@@ -18,6 +18,7 @@ def client():
 # ---------------------------------------------------------------------------
 # GET /health
 # ---------------------------------------------------------------------------
+
 
 def test_health_ok(client):
     resp = client.get("/health")
@@ -31,9 +32,10 @@ def test_health_ok(client):
 # POST /copilot/ask
 # ---------------------------------------------------------------------------
 
+
 def test_copilot_ask_retorna_resposta(client, mock_anthropic):
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic", return_value=mock_anthropic):
-        resp = client.post("/copilot/ask", json={"prompt": "O que é a Arc?"})
+        resp = client.post("/copilot/ask", json={"prompt": "What is Arc?"})
 
     assert resp.status_code == 200
     data = resp.json()
@@ -44,12 +46,13 @@ def test_copilot_ask_retorna_resposta(client, mock_anthropic):
 
 def test_copilot_ask_prompt_vazio_retorna_422(client):
     resp = client.post("/copilot/ask", json={"prompt": "ab"})
-    assert resp.status_code == 422  # min_length=3 falha com 2 chars
+    assert resp.status_code == 422  # min_length=3 fails with 2 chars
 
 
 # ---------------------------------------------------------------------------
 # POST /agents/wallet
 # ---------------------------------------------------------------------------
+
 
 def test_create_wallet_retorna_address_e_chave(client):
     resp = client.post("/agents/wallet")
@@ -63,6 +66,7 @@ def test_create_wallet_retorna_address_e_chave(client):
 # ---------------------------------------------------------------------------
 # GET /agents/balance/{address}
 # ---------------------------------------------------------------------------
+
 
 def test_get_balance_retorna_saldo(client, mock_web3):
     mock_web3.eth.get_balance.return_value = 1_000_000_000_000_000_000
@@ -86,8 +90,9 @@ def test_get_balance_endereco_invalido_retorna_400(client):
 # GET /agents/block
 # ---------------------------------------------------------------------------
 
+
 def test_get_block_retorna_numero_e_chain(client, mock_web3):
-    # get_web3 é importado lazy dentro da rota → patch na origem
+    # get_web3 is imported lazily inside the route → patch at the source
     mock_web3.eth.block_number = 12_345
     mock_web3.eth.chain_id = 7_777_777
 
@@ -102,6 +107,7 @@ def test_get_block_retorna_numero_e_chain(client, mock_web3):
 # ---------------------------------------------------------------------------
 # GET /debug/estimate
 # ---------------------------------------------------------------------------
+
 
 def test_estimate_gas_retorna_custo(client, mock_web3):
     mock_web3.eth.gas_price = 1_000_000_000
