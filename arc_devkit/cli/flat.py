@@ -599,6 +599,71 @@ def wallet_balance(
 
 
 # ---------------------------------------------------------------------------
+# arc send — payment via PaymentAgent
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def send(
+    to: str = typer.Argument(..., help="Recipient EVM address (0x...)."),
+    amount: float = typer.Argument(..., help="Amount to transfer."),
+    token: str = typer.Option(
+        "native", "--token", "-t", help="Token type: 'native' (ARC) or 'usdc' (ERC-20)."
+    ),
+    broadcast: bool = typer.Option(
+        False, "--broadcast", "-b", help="Broadcast transaction (requires ARC_PRIVATE_KEY)."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
+) -> None:
+    """Build (and optionally broadcast) a payment transaction on Arc."""
+    _set_verbose(verbose)
+
+    import os
+
+    private_key = os.getenv("ARC_PRIVATE_KEY", "").strip() or None
+    if not private_key:
+        console.print("[red]ARC_PRIVATE_KEY not set — cannot sign transactions.[/red]")
+        raise typer.Exit(1)
+
+    dest = _validate_address(to)
+
+    from arc_devkit.agents.payment_agent import PaymentAgent
+
+    agent = PaymentAgent(private_key=private_key)
+
+    with console.status("[bold]Preparing transaction...[/bold]", spinner="dots"):
+        resultado = agent.execute(
+            to=dest, amount_usdc=amount, enviar=broadcast, token=token, wait_receipt=broadcast
+        )
+
+    if json_output:
+        console.print_json(_json.dumps(resultado))
+        return
+
+    status_str = resultado.get("status", "unknown")
+    cor = "green" if status_str in ("signed", "confirmed", "sent") else "red"
+
+    tabela = Table(show_header=False, border_style="cyan", padding=(0, 1))
+    tabela.add_column("field", style="dim")
+    tabela.add_column("value", style="bold")
+    tabela.add_row("Status", f"[{cor}]{status_str}[/{cor}]")
+    tabela.add_row("Token", token.upper())
+    tabela.add_row("From", str(resultado.get("from", "N/A")))
+    tabela.add_row("To", dest)
+    tabela.add_row("Amount", f"{amount} {'ARC' if token == 'native' else 'USDC'}")
+    if resultado.get("tx_hash"):
+        tabela.add_row("Tx hash", str(resultado["tx_hash"]))
+    if resultado.get("raw_transaction"):
+        raw = str(resultado["raw_transaction"])
+        tabela.add_row("Raw tx", raw[:32] + "...")
+    if resultado.get("aviso"):
+        tabela.add_row("Warning", f"[yellow]{resultado['aviso']}[/yellow]")
+
+    console.print(Panel(tabela, title="[bold cyan]Payment[/bold cyan]", border_style="cyan"))
+
+
+# ---------------------------------------------------------------------------
 # arc history — analysis history
 # ---------------------------------------------------------------------------
 

@@ -52,10 +52,10 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 ## 3. Tx Debugger (`arc_devkit/debugger/`)
 
-- [ ] 🔴 **Decodificar revert reason** — extrair e exibir o motivo de revert de transações falhas (custom errors e strings de `require`)
-- [ ] 🔴 **Decodificar input data via ABI** — aceitar ABI (JSON) para mostrar qual função foi chamada e com quais argumentos
-- [ ] 🟡 **Carregar ABI local** — opção `--abi path/to/abi.json` no comando `arcdevkit debug tx`
-- [ ] 🟡 **Análise em batch** — `arcdevkit debug batch hashes.txt` para analisar múltiplos hashes de uma vez
+- [x] 🔴 **Decodificar revert reason** — extrair e exibir o motivo de revert de transações falhas (custom errors e strings de `require`)
+- [x] 🔴 **Decodificar input data via ABI** — aceitar ABI (JSON) para mostrar qual função foi chamada e com quais argumentos
+- [x] 🟡 **Carregar ABI local** — opção `--abi path/to/abi.json` no comando `arcdevkit debug tx`
+- [x] 🟡 **Análise em batch** — `arcdevkit debug batch hashes.txt` para analisar múltiplos hashes de uma vez
 - [x] 🟡 **Histórico de análises** — `arc debug` salva em `~/.arc_devkit/history.json`; `arc history` lista resultados
 - [ ] 🟢 **Rastrear transações internas** — usar `debug_traceTransaction` (se disponível no RPC) para exibir calls internas
 - [ ] 🟢 **Comparar duas transações** — `arcdevkit debug compare <hash1> <hash2>` para identificar diferenças de gás e resultado
@@ -112,11 +112,11 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 ## 8. Testes e Qualidade
 
-- [ ] 🔴 **Cobertura mínima de 80%** — configurar `pytest-cov` e falhar CI abaixo do threshold
+- [x] 🔴 **Cobertura mínima de 80%** — configurar `pytest-cov` e falhar CI abaixo do threshold
 - [ ] 🔴 **Testes de integração marcados** — testes `@pytest.mark.integration` rodando contra `arc-testnet.drpc.org` em CI separado
-- [ ] 🔴 **Type checking com mypy** — adicionar `mypy` ao `pyproject.toml` e corrigir todos os erros de tipo
-- [ ] 🟡 **Testes de contrato da API** — usar `httpx.AsyncClient` no pytest para testar todos os endpoints da FastAPI
-- [ ] 🟡 **Testes de CLI** — usar `typer.testing.CliRunner` para cobrir todos os subcomandos com mocks
+- [x] 🔴 **Type checking com mypy** — adicionar `mypy` ao `pyproject.toml` e corrigir todos os erros de tipo
+- [x] 🟡 **Testes de contrato da API** — usar `httpx.AsyncClient` no pytest para testar todos os endpoints da FastAPI
+- [x] 🟡 **Testes de CLI** — usar `typer.testing.CliRunner` para cobrir todos os subcomandos com mocks
 - [ ] 🟡 **Testes de regressão da RPC** — snapshot de respostas reais gravadas para replay offline (`vcrpy` ou `respx`)
 - [ ] 🟢 **Testes de carga da API** — usar `locust` para medir throughput dos endpoints
 
@@ -151,15 +151,15 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 |---|---|---|---|
 | 1. DevCopilot | 8 | 6 | 2 |
 | 2. Agents | 12 | 8 | 4 |
-| 3. Tx Debugger | 7 | 1 | 6 |
+| 3. Tx Debugger | 7 | 5 | 2 |
 | 4. API REST | 9 | 5 | 4 |
 | 5. CLI | 8 | 7 | 1 |
 | 6. Analytics | 6 | 5 | 1 |
 | 7. Módulos Novos | 5 | 2 | 3 |
-| 8. Testes | 7 | 0 | 7 |
+| 8. Testes | 7 | 5 | 2 |
 | 9. Documentação | 6 | 0 | 6 |
 | 10. DevOps | 7 | 0 | 7 |
-| **Total** | **75** | **34** | **41** |
+| **Total** | **75** | **43** | **32** |
 
 ---
 

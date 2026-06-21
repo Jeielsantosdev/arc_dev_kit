@@ -72,6 +72,28 @@ class PaymentAgent(BaseAgent):
             logger.warning("Simulation detected revert: %s", exc)
             return False
 
+    def _build_usdc_signed_tx(self, to: str, amount: Decimal) -> tuple:
+        """Build and sign a USDC ERC-20 transfer tx; return (signed, gas_limit)."""
+        from arc_devkit.usdc.token import _ERC20_ABI, USDC_MULTIPLIER, USDC_ARC_TESTNET_ADDRESS
+
+        usdc_address = Web3.to_checksum_address(USDC_ARC_TESTNET_ADDRESS)
+        contract = self._w3.eth.contract(address=usdc_address, abi=_ERC20_ABI)
+        atomic = int(amount * Decimal(str(USDC_MULTIPLIER)))
+        nonce = self._w3.eth.get_transaction_count(self._address)
+
+        tx = contract.functions.transfer(to, atomic).build_transaction(
+            {
+                "from": self._address,
+                "nonce": nonce,
+                "gasPrice": self._w3.eth.gas_price,
+                "chainId": self._w3.eth.chain_id,
+            }
+        )
+        gas_limit = self._estimate_gas(tx)
+        tx["gas"] = gas_limit
+        signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+        return signed, gas_limit
+
     def execute(
         self,
         to: str,
@@ -80,17 +102,19 @@ class PaymentAgent(BaseAgent):
         wait_receipt: bool = True,
         on_success: Callable[[dict], None] | None = None,
         on_failure: Callable[[Exception], None] | None = None,
+        token: str = "native",
     ) -> dict:
         """
         Build and sign a payment transaction.
 
         Args:
             to: EVM recipient address.
-            amount_usdc: Amount to transfer (in USDC / native wei).
+            amount_usdc: Amount to transfer.
             enviar: If True, broadcasts to the network (requires private key).
             wait_receipt: If True (and enviar=True), waits for confirmation.
             on_success: Callback invoked with the receipt on confirmation.
             on_failure: Callback invoked with the exception on error.
+            token: "native" for native ARC, "usdc" for ERC-20 USDC.
 
         Returns:
             Dict with status and transaction details.
@@ -100,28 +124,32 @@ class PaymentAgent(BaseAgent):
 
         try:
             destinatario = Web3.to_checksum_address(to)
-            self.log(f"Preparing payment of {amount_usdc} USDC → {destinatario}")
+            self.log(f"Preparing {token} payment of {amount_usdc} → {destinatario}")
 
-            value_wei = self._w3.to_wei(amount_usdc, "ether")
-            nonce = self._w3.eth.get_transaction_count(self._address)
-
-            tx_base = {
-                "from": self._address,
-                "to": destinatario,
-                "value": value_wei,
-                "nonce": nonce,
-                "chainId": self._w3.eth.chain_id,
-            }
-
-            gas_limit = self._estimate_gas(tx_base)
-            tx = {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
-
-            signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
-            self.log("Transaction signed successfully.")
+            if token == "usdc":
+                signed, gas_limit = self._build_usdc_signed_tx(
+                    destinatario, Decimal(str(amount_usdc))
+                )
+                self.log("USDC transfer signed successfully.")
+            else:
+                value_wei = self._w3.to_wei(amount_usdc, "ether")
+                nonce = self._w3.eth.get_transaction_count(self._address)
+                tx_base = {
+                    "from": self._address,
+                    "to": destinatario,
+                    "value": value_wei,
+                    "nonce": nonce,
+                    "chainId": self._w3.eth.chain_id,
+                }
+                gas_limit = self._estimate_gas(tx_base)
+                tx = {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
+                signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+                self.log("Transaction signed successfully.")
 
             if not enviar:
                 return {
                     "status": "signed",
+                    "token": token,
                     "from": self._address,
                     "to": destinatario,
                     "amount_usdc": amount_usdc,
@@ -136,6 +164,7 @@ class PaymentAgent(BaseAgent):
 
             resultado: dict = {
                 "status": "sent",
+                "token": token,
                 "from": self._address,
                 "to": destinatario,
                 "amount_usdc": amount_usdc,

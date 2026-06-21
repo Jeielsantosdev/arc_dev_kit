@@ -19,10 +19,13 @@ class PaymentRequest(BaseModel):
     """Request body for the payment endpoint."""
 
     to: str = Field(..., description="Destination EVM address.")
-    amount_usdc: float = Field(..., gt=0, description="Amount to transfer (in USDC).")
+    amount_usdc: float = Field(..., gt=0, description="Amount to transfer.")
     private_key: str = Field(..., description="Sender's private key (hex).")
     enviar: bool = Field(
         False, description="If True, broadcasts to network; otherwise returns signed tx."
+    )
+    token: str = Field(
+        "native", description="Token type: 'native' for ARC, 'usdc' for ERC-20 USDC."
     )
 
 
@@ -96,7 +99,9 @@ async def payment(body: PaymentRequest) -> PaymentResponse:
 
     try:
         agente = PaymentAgent(private_key=body.private_key)
-        resultado = agente.execute(to=body.to, amount_usdc=body.amount_usdc, enviar=body.enviar)
+        resultado = agente.execute(
+            to=body.to, amount_usdc=body.amount_usdc, enviar=body.enviar, token=body.token
+        )
 
         if resultado.get("status") == "error":
             raise HTTPException(status_code=400, detail=resultado.get("error"))
