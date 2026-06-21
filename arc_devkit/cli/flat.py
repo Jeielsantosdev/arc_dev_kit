@@ -849,6 +849,7 @@ def portfolio_analyze(
             )
         )
 
+    analyzer.save_snapshot(snapshot)
     _save_history(
         {
             "type": "portfolio",
@@ -857,6 +858,51 @@ def portfolio_analyze(
             "native_balance": str(snapshot.native_balance),
         }
     )
+
+
+@portfolio_app.command("history")
+def portfolio_history(
+    address: str = typer.Argument(..., help="EVM wallet address."),
+    limit: int = typer.Option(10, "--limit", "-n", help="Max snapshots to display."),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Show saved balance history for a wallet (sorted newest first)."""
+    from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+    checksum = _validate_address(address)
+    records = PortfolioAnalyzer.load_history(checksum, limit=limit)
+
+    if not records:
+        console.print(
+            f"[yellow]No history found for[/yellow] [cyan]{checksum}[/cyan]. "
+            "Run [bold]arc portfolio analyze[/bold] first."
+        )
+        raise typer.Exit(0)
+
+    if json_output:
+        console.print_json(_json.dumps(records))
+        return
+
+    table = Table(
+        title=f"Balance history — {checksum[:10]}... (last {len(records)})",
+        border_style="cyan",
+    )
+    table.add_column("Timestamp", style="dim")
+    table.add_column("Native (ARC)", justify="right", style="green")
+    table.add_column("USDC", justify="right", style="green")
+    table.add_column("Activity", justify="center")
+    table.add_column("Txs", justify="right")
+
+    for rec in records:
+        table.add_row(
+            rec.get("timestamp", "N/A")[:19].replace("T", " "),
+            rec.get("native_balance", "?"),
+            rec.get("usdc_balance") or "[dim]N/A[/dim]",
+            rec.get("activity_score", "?"),
+            str(rec.get("tx_count", "?")),
+        )
+
+    console.print(table)
 
 
 @portfolio_app.command("report")

@@ -1,13 +1,18 @@
 """Portfolio analysis and wallet activity tracking for Arc blockchain."""
 
+import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal
 
 from web3 import Web3
 
 logger = logging.getLogger(__name__)
+
+_HISTORY_DIR = Path.home() / ".arc_devkit" / "portfolio_history"
 
 ActivityLevel = Literal["high", "medium", "low", "inactive"]
 
@@ -120,6 +125,77 @@ class PortfolioAnalyzer:
             blocks_to=current_block,
             activity_score=score,
         )
+
+    def save_snapshot(
+        self,
+        snapshot: PortfolioSnapshot,
+        history_dir: Path | None = None,
+    ) -> Path:
+        """
+        Persist a snapshot to the history store.
+
+        Each address has its own JSONL file (one record per line). Records are
+        appended so history is preserved across calls.
+
+        Args:
+            snapshot: The snapshot to persist.
+            history_dir: Override the default ``~/.arc_devkit/portfolio_history/``.
+
+        Returns:
+            Path of the history file that was written.
+        """
+        store = history_dir or _HISTORY_DIR
+        store.mkdir(parents=True, exist_ok=True)
+
+        safe_addr = snapshot.address.lower()
+        history_file = store / f"{safe_addr}.jsonl"
+
+        record = self.to_dict(snapshot)
+        record["timestamp"] = datetime.now(tz=timezone.utc).isoformat()
+
+        with history_file.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+
+        logger.info("Snapshot saved → %s", history_file)
+        return history_file
+
+    @staticmethod
+    def load_history(
+        address: str,
+        history_dir: Path | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """
+        Load saved snapshots for an address, newest first.
+
+        Args:
+            address: EVM address to look up.
+            history_dir: Override the default history directory.
+            limit: Maximum number of records to return.
+
+        Returns:
+            List of snapshot dicts ordered from newest to oldest.
+        """
+        store = history_dir or _HISTORY_DIR
+        safe_addr = Web3.to_checksum_address(address).lower()
+        history_file = store / f"{safe_addr}.jsonl"
+
+        if not history_file.exists():
+            return []
+
+        records = []
+        for line in history_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+        records.reverse()  # newest first
+        if limit is not None:
+            records = records[:limit]
+        return records
 
     def to_dict(self, snapshot: PortfolioSnapshot) -> dict:
         """Convert a PortfolioSnapshot to a JSON-serializable dict."""

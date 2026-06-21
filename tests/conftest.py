@@ -18,6 +18,16 @@ from unittest.mock import MagicMock, patch  # noqa: E402
 import pytest  # noqa: E402
 
 
+def pytest_collection_modifyitems(config, items):
+    """Skip @pytest.mark.integration tests unless -m integration is passed."""
+    if config.getoption("-m", default="") == "integration":
+        return
+    skip_integration = pytest.mark.skip(reason="integration test — use -m integration to run")
+    for item in items:
+        if item.get_closest_marker("integration"):
+            item.add_marker(skip_integration)
+
+
 @pytest.fixture
 def mock_web3():
     """

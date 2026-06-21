@@ -349,3 +349,119 @@ class TestPortfolioCLI:
         runner = CliRunner()
         result = runner.invoke(app, ["portfolio", "report", "nonexistent.json"])
         assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Balance history — save_snapshot / load_history
+# ---------------------------------------------------------------------------
+
+
+class TestBalanceHistory:
+    def _make_snapshot(self, address="0x" + "a" * 40, tx_count=3):
+        from arc_devkit.analytics.portfolio import ActivityLevel, PortfolioSnapshot
+
+        return PortfolioSnapshot(
+            address=address,
+            native_balance=Decimal("1.5"),
+            usdc_balance=None,
+            nonce=tx_count,
+            recent_txs=[],
+            blocks_scanned=100,
+            blocks_from=900,
+            blocks_to=1000,
+            activity_score="low",
+        )
+
+    def test_save_snapshot_creates_file(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        snap = self._make_snapshot()
+        analyzer = PortfolioAnalyzer(w3=_make_w3())
+        path = analyzer.save_snapshot(snap, history_dir=tmp_path)
+        assert path.exists()
+        data = path.read_text()
+        assert '"native_balance"' in data
+
+    def test_save_snapshot_appends_records(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        snap = self._make_snapshot()
+        analyzer = PortfolioAnalyzer(w3=_make_w3())
+        analyzer.save_snapshot(snap, history_dir=tmp_path)
+        analyzer.save_snapshot(snap, history_dir=tmp_path)
+        path = tmp_path / f"{snap.address.lower()}.jsonl"
+        lines = [l for l in path.read_text().splitlines() if l.strip()]
+        assert len(lines) == 2
+
+    def test_save_snapshot_includes_timestamp(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        snap = self._make_snapshot()
+        analyzer = PortfolioAnalyzer(w3=_make_w3())
+        path = analyzer.save_snapshot(snap, history_dir=tmp_path)
+        record = json.loads(path.read_text().splitlines()[0])
+        assert "timestamp" in record
+        assert "T" in record["timestamp"]
+
+    def test_load_history_returns_newest_first(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        addr = "0x" + "b" * 40
+        snap = self._make_snapshot(address=addr)
+        analyzer = PortfolioAnalyzer(w3=_make_w3())
+        analyzer.save_snapshot(snap, history_dir=tmp_path)
+        analyzer.save_snapshot(snap, history_dir=tmp_path)
+
+        records = PortfolioAnalyzer.load_history(addr, history_dir=tmp_path)
+        assert len(records) == 2
+        # newest first — second record has a timestamp >= first
+        t1 = records[0].get("timestamp", "")
+        t2 = records[1].get("timestamp", "")
+        assert t1 >= t2
+
+    def test_load_history_empty_when_no_file(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        result = PortfolioAnalyzer.load_history("0x" + "c" * 40, history_dir=tmp_path)
+        assert result == []
+
+    def test_load_history_limit(self, tmp_path):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        snap = self._make_snapshot()
+        analyzer = PortfolioAnalyzer(w3=_make_w3())
+        for _ in range(5):
+            analyzer.save_snapshot(snap, history_dir=tmp_path)
+
+        records = PortfolioAnalyzer.load_history(snap.address, history_dir=tmp_path, limit=3)
+        assert len(records) == 3
+
+    def test_portfolio_history_cli_no_file(self, tmp_path, monkeypatch):
+        """arc portfolio history shows friendly message when no history exists."""
+        from typer.testing import CliRunner
+
+        from arc_devkit.cli.flat import app
+
+        monkeypatch.setattr(
+            "arc_devkit.analytics.portfolio._HISTORY_DIR", tmp_path / "history"
+        )
+        runner = CliRunner()
+        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=[]):
+            result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40])
+        assert result.exit_code == 0
+        assert "No history" in result.output or "history" in result.output.lower()
+
+    def test_portfolio_history_cli_json_output(self, tmp_path):
+        """arc portfolio history --json outputs valid JSON list."""
+        from typer.testing import CliRunner
+
+        from arc_devkit.cli.flat import app
+
+        records = [{"native_balance": "1.5", "timestamp": "2026-01-01T00:00:00+00:00", "tx_count": 2}]
+        runner = CliRunner()
+        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=records):
+            result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40, "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) == 1
