@@ -194,8 +194,7 @@ def main() -> None:
 
     if not check_connection():
         console.print(
-            "[red]✗ Não foi possível conectar.\n"
-            "  Configure ARC_RPC_URL no arquivo .env[/red]"
+            "[red]✗ Não foi possível conectar.\n  Configure ARC_RPC_URL no arquivo .env[/red]"
         )
         return
 

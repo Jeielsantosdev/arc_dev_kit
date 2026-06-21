@@ -127,9 +127,7 @@ def gerar(objetivo: str) -> None:
     if Confirm.ask("\n[green]Salvar em arquivo?[/green]", default=True):
         arquivo = salvar_codigo(codigo, objetivo)
         console.print(f"\n[bold green]✓[/bold green] Salvo em: [bold]{arquivo}[/bold]")
-        console.print(
-            f"[dim]Execute com: python {arquivo.relative_to(Path.cwd())}[/dim]"
-        )
+        console.print(f"[dim]Execute com: python {arquivo.relative_to(Path.cwd())}[/dim]")
 
 
 def mostrar_exemplos() -> None:
