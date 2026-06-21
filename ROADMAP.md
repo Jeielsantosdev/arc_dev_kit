@@ -105,7 +105,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🔴 **`arc_devkit/contracts/`** — `load_abi()`, `call_view()`, `send_tx()`, `decode_events()`
 - [x] 🔴 **`arc_devkit/usdc/`** — `USDCToken`: `balance()`, `transfer()`, `allowance()`, `approve()`
 - [x] 🟡 **`arc_devkit/events/`** — `EventListener`: escuta logs por tópico/contrato e chama callbacks (base para DeFi bots)
-- [ ] 🟡 **`arc_devkit/deploy/`** — `ContractDeployer`: compila Solidity (via `py-solc-x`) e faz deploy na Arc testnet
+- [x] 🟡 **`arc_devkit/deploy/`** — `ContractDeployer`: compila Solidity (via `py-solc-x`) e faz deploy na Arc testnet
 - [ ] 🟢 **`arc_devkit/oracle/`** — integração com feed de preços on-chain ou Chainlink para converter valores ARC ↔ USD
 
 ---
@@ -135,11 +135,11 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 ## 10. DevOps e Infraestrutura
 
-- [ ] 🔴 **Publicação automática no PyPI** — workflow GitHub Actions disparado por push de tag `v*` que builda e faz `twine upload`
-- [ ] 🔴 **CI com testes de integração** — job separado no workflow que roda `pytest -m integration` contra a Arc testnet real
-- [ ] 🟡 **Pre-commit hooks** — configurar `.pre-commit-config.yaml` com ruff, mypy e validação de conventional commits
-- [ ] 🟡 **Release automático no GitHub** — usar `gh release create` no workflow de tag para publicar notas de release
-- [ ] 🟡 **Dependabot** — `dependabot.yml` para atualizar deps Python e GitHub Actions automaticamente
+- [x] 🔴 **Publicação automática no PyPI** — workflow GitHub Actions disparado por push de tag `v*` que builda e faz `twine upload`
+- [x] 🔴 **CI com testes de integração** — job separado no workflow que roda `pytest -m integration` contra a Arc testnet real
+- [x] 🟡 **Pre-commit hooks** — configurar `.pre-commit-config.yaml` com ruff, mypy e validação de conventional commits
+- [x] 🟡 **Release automático no GitHub** — usar `gh release create` no workflow de tag para publicar notas de release
+- [x] 🟡 **Dependabot** — `dependabot.yml` para atualizar deps Python e GitHub Actions automaticamente
 - [ ] 🟢 **Docker oficial** — imagem `ghcr.io/jeielsantosdev/arc-devkit` publicada no GitHub Container Registry
 - [ ] 🟢 **Badges no README** — PyPI version, CI status, coverage e license shields no topo do README
 
@@ -154,12 +154,12 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 | 3. Tx Debugger | 7 | 5 | 2 |
 | 4. API REST | 9 | 5 | 4 |
 | 5. CLI | 8 | 7 | 1 |
-| 6. Analytics | 6 | 5 | 1 |
-| 7. Módulos Novos | 5 | 2 | 3 |
-| 8. Testes | 7 | 5 | 2 |
+| 6. Analytics | 6 | 6 | 0 |
+| 7. Módulos Novos | 5 | 4 | 1 |
+| 8. Testes | 7 | 6 | 1 |
 | 9. Documentação | 6 | 0 | 6 |
-| 10. DevOps | 7 | 0 | 7 |
-| **Total** | **75** | **43** | **32** |
+| 10. DevOps | 7 | 5 | 2 |
+| **Total** | **75** | **51** | **24** |
 
 ---
 
