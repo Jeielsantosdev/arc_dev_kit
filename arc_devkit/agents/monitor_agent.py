@@ -124,8 +124,8 @@ class MonitorAgent(BaseAgent):
 
         Args:
             callback: Called with an event dict when a change above the threshold
-                      is detected. Event keys: address, saldo_anterior_wei,
-                      saldo_atual_wei, diferenca_wei, tipo, tipo_evento.
+                      is detected. Event keys: address, prev_balance_wei,
+                      balance_wei, change_wei, type, event_type.
             max_iterations: Maximum number of iterations (0 = infinite).
 
         Returns:
@@ -143,23 +143,23 @@ class MonitorAgent(BaseAgent):
 
         while self._running:
             for addr in self._watched:
-                saldo_atual = self._w3.eth.get_balance(addr)
-                saldo_anterior = self._last_balances.get(addr, saldo_atual)
-                diferenca = saldo_atual - saldo_anterior
+                current_balance = self._w3.eth.get_balance(addr)
+                prev_balance = self._last_balances.get(addr, current_balance)
+                delta = current_balance - prev_balance
 
-                if diferenca != 0 and abs(diferenca) >= self._min_change_wei:
-                    evento = {
+                if delta != 0 and abs(delta) >= self._min_change_wei:
+                    event = {
                         "address": addr,
-                        "prev_balance_wei": str(saldo_anterior),
-                        "balance_wei": str(saldo_atual),
-                        "change_wei": str(diferenca),
-                        "type": "credit" if diferenca > 0 else "debit",
+                        "prev_balance_wei": str(prev_balance),
+                        "balance_wei": str(current_balance),
+                        "change_wei": str(delta),
+                        "type": "credit" if delta > 0 else "debit",
                         "event_type": "native",
                     }
-                    self.log(f"[{addr[:10]}] Change: {diferenca:+d} wei ({evento['type']})")
+                    self.log(f"[{addr[:10]}] Change: {delta:+d} wei ({event['type']})")
                     if callback:
-                        callback(evento)
-                    self._last_balances[addr] = saldo_atual
+                        callback(event)
+                    self._last_balances[addr] = current_balance
 
             self._save_state()
             iterations += 1

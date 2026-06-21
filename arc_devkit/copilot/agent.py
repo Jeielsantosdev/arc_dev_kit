@@ -94,8 +94,8 @@ class DevCopilot:
             messages=list(self._history),  # pass copy to avoid leaking mutable state by reference
         )
 
-        resposta = message.content[0].text
-        self._history.append({"role": "assistant", "content": resposta})
+        response_text = message.content[0].text
+        self._history.append({"role": "assistant", "content": response_text})
 
         usage = message.usage
         logger.info(
@@ -104,8 +104,8 @@ class DevCopilot:
             usage.output_tokens,
         )
 
-        self._cache[cache_key] = (resposta, time.time())
-        return resposta
+        self._cache[cache_key] = (response_text, time.time())
+        return response_text
 
     def ask_stream(self, prompt: str) -> Iterator[str]:
         """
@@ -118,7 +118,7 @@ class DevCopilot:
         self._history.append({"role": "user", "content": prompt})
         logger.info("Dev Copilot (stream) queried — prompt: %.80s...", prompt)
 
-        resposta_completa: list[str] = []
+        chunks: list[str] = []
 
         with self._client.messages.stream(
             model=self.model,
@@ -127,10 +127,10 @@ class DevCopilot:
             messages=self._history,
         ) as stream:
             for text in stream.text_stream:
-                resposta_completa.append(text)
+                chunks.append(text)
                 yield text
 
-        full = "".join(resposta_completa)
+        full = "".join(chunks)
         self._history.append({"role": "assistant", "content": full})
 
     def clear_history(self) -> None:

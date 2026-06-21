@@ -54,53 +54,53 @@ class TxAnalyzer:
             return {
                 "hash": tx_hash,
                 "status": "error",
-                "resumo": f"Could not fetch transaction: {exc}",
+                "summary": f"Could not fetch transaction: {exc}",
                 "custo_usdc": "0",
-                "erro": str(exc),
-                "sugestao": "Check that the hash is correct and the RPC is reachable.",
+                "error": str(exc),
+                "suggestion": "Check that the hash is correct and the RPC is reachable.",
             }
 
         # --- 2. Calculate USDC cost ---
-        gas_usado = receipt.get("gasUsed", 0)
+        gas_used = receipt.get("gasUsed", 0)
         gas_price = tx.get("gasPrice", 0)
-        custo_wei = gas_usado * gas_price
+        cost_wei = gas_used * gas_price
         # Convert to human-readable units (18 decimals for native token)
-        custo_decimal = Decimal(str(self._w3.from_wei(custo_wei, "ether")))
+        cost_decimal = Decimal(str(self._w3.from_wei(cost_wei, "ether")))
 
         # --- 3. Build data summary for AI prompt ---
         status_str = "success" if receipt.get("status") == 1 else "reverted"
-        dados_resumo = {
+        data_summary = {
             "hash": tx_hash,
             "from": tx.get("from"),
             "to": tx.get("to"),
             "value_wei": str(tx.get("value", 0)),
             "gas_limit": tx.get("gas"),
-            "gas_used": gas_usado,
+            "gas_used": gas_used,
             "status": status_str,
-            "estimated_cost_usdc": str(custo_decimal),
+            "estimated_cost_usdc": str(cost_decimal),
             "block": receipt.get("blockNumber"),
             "logs_count": len(receipt.get("logs", [])),
         }
 
-        logger.debug("Data collected: %s", dados_resumo)
+        logger.debug("Data collected: %s", data_summary)
 
         # --- 4. Request analysis from Dev Copilot ---
         try:
             from arc_devkit.copilot.agent import DevCopilot
 
             copilot = DevCopilot()
-            prompt = _ANALYSIS_PROMPT.format(data=dados_resumo)
-            resumo = copilot.ask(prompt)
+            prompt = _ANALYSIS_PROMPT.format(data=data_summary)
+            summary = copilot.ask(prompt)
         except Exception as exc:
             logger.warning("AI analysis unavailable: %s", exc)
-            resumo = f"Status: {status_str} | Gas used: {gas_usado} | Cost: {custo_decimal} USDC"
+            summary = f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
 
         return {
             "hash": tx_hash,
             "status": status_str,
-            "resumo": resumo,
-            "custo_usdc": str(custo_decimal),
-            "erro": None if status_str == "success" else "Transaction reverted",
-            "sugestao": "",  # included in the Claude-generated resumo
-            "dados_brutos": dados_resumo,
+            "summary": summary,
+            "custo_usdc": str(cost_decimal),
+            "error": None if status_str == "success" else "Transaction reverted",
+            "suggestion": "",  # included in the Claude-generated summary
+            "raw_data": data_summary,
         }
