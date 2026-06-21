@@ -138,7 +138,7 @@ class MonitorAgent(BaseAgent):
             if addr not in self._last_balances:
                 self._last_balances[addr] = self._w3.eth.get_balance(addr)
 
-        iteracoes = 0
+        iterations = 0
         self.log(f"Monitoring {len(self._watched)} wallet(s) every {self._interval}s")
 
         while self._running:
@@ -150,25 +150,25 @@ class MonitorAgent(BaseAgent):
                 if diferenca != 0 and abs(diferenca) >= self._min_change_wei:
                     evento = {
                         "address": addr,
-                        "saldo_anterior_wei": str(saldo_anterior),
-                        "saldo_atual_wei": str(saldo_atual),
-                        "diferenca_wei": str(diferenca),
-                        "tipo": "credit" if diferenca > 0 else "debit",
-                        "tipo_evento": "native",
+                        "prev_balance_wei": str(saldo_anterior),
+                        "balance_wei": str(saldo_atual),
+                        "change_wei": str(diferenca),
+                        "type": "credit" if diferenca > 0 else "debit",
+                        "event_type": "native",
                     }
-                    self.log(f"[{addr[:10]}] Change: {diferenca:+d} wei ({evento['tipo']})")
+                    self.log(f"[{addr[:10]}] Change: {diferenca:+d} wei ({evento['type']})")
                     if callback:
                         callback(evento)
                     self._last_balances[addr] = saldo_atual
 
             self._save_state()
-            iteracoes += 1
-            if max_iterations and iteracoes >= max_iterations:
+            iterations += 1
+            if max_iterations and iterations >= max_iterations:
                 break
 
             time.sleep(self._interval)
 
-        return {"status": "done", "iteracoes": iteracoes}
+        return {"status": "done", "iterations": iterations}
 
     def stop(self) -> None:
         """Stop the monitoring loop on the next iteration."""

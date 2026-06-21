@@ -152,13 +152,13 @@ def monitor(
     from arc_devkit.agents.monitor_agent import MonitorAgent
 
     def _callback(evento: dict) -> None:
-        tipo = evento["tipo"]
-        diferenca_wei = int(evento["diferenca_wei"])
+        tipo = evento["type"]
+        change_wei = int(evento["change_wei"])
         cor = "green" if tipo == "credit" else "red"
         sinal = "+" if tipo == "credit" else "-"
         console.print(
-            f"  [{cor}]{sinal}{abs(diferenca_wei)} wei ({tipo})[/{cor}]"
-            f" → balance: {evento['saldo_atual_wei']} wei"
+            f"  [{cor}]{sinal}{abs(change_wei)} wei ({tipo})[/{cor}]"
+            f" → balance: {evento['balance_wei']} wei"
         )
 
     agente = MonitorAgent(watched_address=address, interval_seconds=interval)

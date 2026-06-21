@@ -148,4 +148,4 @@ class TestMonitorAgent:
             result = agent.execute(max_iterations=1)
 
         assert result["status"] == "done"
-        assert result["iteracoes"] == 1
+        assert result["iterations"] == 1
