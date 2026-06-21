@@ -522,6 +522,284 @@ def history(
 
 
 # ---------------------------------------------------------------------------
+# arc portfolio — wallet portfolio analysis
+# ---------------------------------------------------------------------------
+
+portfolio_app = typer.Typer(help="Wallet portfolio analysis on Arc")
+app.add_typer(portfolio_app, name="portfolio")
+
+_SCORE_COLOR = {
+    "high": "green",
+    "medium": "yellow",
+    "low": "cyan",
+    "inactive": "dim",
+}
+_SCORE_ICON = {
+    "high": "🔥",
+    "medium": "📊",
+    "low": "📉",
+    "inactive": "💤",
+}
+
+
+@portfolio_app.command("analyze")
+def portfolio_analyze(
+    address: str = typer.Argument(..., help="EVM wallet address to analyze."),
+    blocks: int = typer.Option(100, "--blocks", "-b", help="Number of recent blocks to scan."),
+    no_ai: bool = typer.Option(False, "--no-ai", help="Skip AI analysis (faster)."),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
+) -> None:
+    """Analyze a wallet: balances, transaction history, and AI insights."""
+    _set_verbose(verbose)
+    checksum = _validate_address(address)
+
+    from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+    analyzer = PortfolioAnalyzer()
+
+    with console.status(
+        f"Scanning last [bold]{blocks}[/bold] blocks for [cyan]{checksum[:10]}...[/cyan]",
+        spinner="dots",
+    ):
+        snapshot = analyzer.analyze(checksum, scan_blocks=blocks)
+
+    if json_output:
+        data = analyzer.to_dict(snapshot)
+        if not no_ai:
+            data["ai_analysis"] = _portfolio_ai_analysis(snapshot)
+        _save_history({"type": "portfolio", "address": checksum, "result": data})
+        console.print_json(_json.dumps(data))
+        return
+
+    # Rich display
+    score_color = _SCORE_COLOR[snapshot.activity_score]
+    score_icon = _SCORE_ICON[snapshot.activity_score]
+
+    # Balance table
+    bal_table = Table(show_header=False, border_style=score_color, padding=(0, 1))
+    bal_table.add_column("field", style="dim")
+    bal_table.add_column("value", style="bold")
+    bal_table.add_row("Address", f"[cyan]{snapshot.address}[/cyan]")
+    bal_table.add_row(
+        "Native balance",
+        f"[green]{snapshot.native_balance:.6f}[/green] ARC",
+    )
+    if snapshot.usdc_balance is not None:
+        bal_table.add_row(
+            "USDC balance",
+            f"[green]{snapshot.usdc_balance:.6f}[/green] USDC",
+        )
+    else:
+        bal_table.add_row("USDC balance", "[dim]unavailable (contract pending)[/dim]")
+    bal_table.add_row("Nonce (txs sent)", str(snapshot.nonce))
+    bal_table.add_row(
+        "Activity score",
+        f"[{score_color}]{score_icon} {snapshot.activity_score}[/{score_color}]",
+    )
+    bal_table.add_row(
+        "Blocks scanned",
+        f"{snapshot.blocks_scanned} (#{snapshot.blocks_from} → #{snapshot.blocks_to})",
+    )
+    bal_table.add_row("Txs found", str(len(snapshot.recent_txs)))
+
+    console.print(
+        Panel(
+            bal_table,
+            title=f"[bold {score_color}]Portfolio — {checksum[:10]}...[/bold {score_color}]",
+            border_style=score_color,
+        )
+    )
+
+    # Recent transactions table
+    if snapshot.recent_txs:
+        tx_limit = 10
+        tx_table = Table(
+            title=f"Recent transactions (last {min(tx_limit, len(snapshot.recent_txs))} of {len(snapshot.recent_txs)})",
+            border_style="dim",
+            show_lines=False,
+        )
+        tx_table.add_column("Block", style="dim", justify="right")
+        tx_table.add_column("Hash", style="dim")
+        tx_table.add_column("Dir", justify="center")
+        tx_table.add_column("Value (ARC)", justify="right")
+        tx_table.add_column("Status")
+
+        for tx in snapshot.recent_txs[-tx_limit:]:
+            dir_style = "[green]↑ sent[/green]" if tx.direction == "sent" else "[blue]↓ recv[/blue]"
+            status_style = (
+                "[green]✓[/green]"
+                if tx.status == "success"
+                else "[red]✗[/red]"
+                if tx.status == "failed"
+                else "[yellow]…[/yellow]"
+            )
+            tx_table.add_row(
+                str(tx.block),
+                tx.hash[:18] + "...",
+                dir_style,
+                f"{tx.value_arc:.4f}",
+                status_style,
+            )
+        console.print(tx_table)
+    else:
+        console.print("[dim]No transactions found in the scanned range.[/dim]")
+
+    # AI analysis
+    if not no_ai:
+        with console.status("DevCopilot analyzing...", spinner="dots"):
+            analysis = _portfolio_ai_analysis(snapshot)
+
+        console.print(
+            Panel(
+                Markdown(analysis),
+                title="[bold cyan]AI Analysis[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+
+    _save_history(
+        {
+            "type": "portfolio",
+            "address": checksum,
+            "activity_score": snapshot.activity_score,
+            "native_balance": str(snapshot.native_balance),
+        }
+    )
+
+
+@portfolio_app.command("report")
+def portfolio_report(
+    wallets_file: str = typer.Argument(
+        ..., help="JSON file with wallet addresses (list of strings or [{address, label}])."
+    ),
+    blocks: int = typer.Option(100, "--blocks", "-b", help="Blocks to scan per wallet."),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
+) -> None:
+    """Consolidated portfolio report for multiple wallets from a JSON file."""
+    _set_verbose(verbose)
+
+    wallets_path = Path(wallets_file)
+    if not wallets_path.exists():
+        console.print(f"[red]File not found:[/red] {wallets_file}")
+        raise typer.Exit(1)
+
+    try:
+        raw = _json.loads(wallets_path.read_text())
+    except Exception as exc:
+        console.print(f"[red]Could not read wallet file:[/red] {exc}")
+        raise typer.Exit(1)
+
+    # Accept both ["0x..."] and [{"address": "0x...", "label": "..."}]
+    entries: list[dict] = []
+    for item in raw:
+        if isinstance(item, str):
+            entries.append({"address": item, "label": ""})
+        elif isinstance(item, dict) and "address" in item:
+            entries.append({"address": item["address"], "label": item.get("label", "")})
+        else:
+            console.print(f"[yellow]Skipping invalid entry:[/yellow] {item}")
+
+    if not entries:
+        console.print("[red]No valid addresses found in file.[/red]")
+        raise typer.Exit(1)
+
+    from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+    analyzer = PortfolioAnalyzer()
+    results: list[dict] = []
+
+    report_table = Table(
+        title=f"Portfolio Report — {len(entries)} wallets",
+        border_style="cyan",
+        show_lines=True,
+    )
+    report_table.add_column("Label", style="bold")
+    report_table.add_column("Address")
+    report_table.add_column("ARC Balance", justify="right")
+    report_table.add_column("USDC", justify="right")
+    report_table.add_column("Nonce", justify="right")
+    report_table.add_column("Txs", justify="right")
+    report_table.add_column("Activity")
+
+    for entry in entries:
+        addr = entry["address"]
+        label = entry.get("label", "")
+        try:
+            checksum = _validate_address(addr)
+        except SystemExit:
+            continue
+
+        with console.status(
+            f"Analyzing [cyan]{checksum[:10]}...[/cyan]", spinner="dots"
+        ):
+            snapshot = analyzer.analyze(checksum, scan_blocks=blocks)
+
+        data = analyzer.to_dict(snapshot)
+        data["label"] = label
+        results.append(data)
+
+        score_color = _SCORE_COLOR[snapshot.activity_score]
+        score_icon = _SCORE_ICON[snapshot.activity_score]
+        usdc_str = (
+            f"{snapshot.usdc_balance:.4f}" if snapshot.usdc_balance is not None else "N/A"
+        )
+
+        report_table.add_row(
+            label or "—",
+            f"{checksum[:10]}...",
+            f"{snapshot.native_balance:.4f}",
+            usdc_str,
+            str(snapshot.nonce),
+            str(len(snapshot.recent_txs)),
+            f"[{score_color}]{score_icon} {snapshot.activity_score}[/{score_color}]",
+        )
+
+    if json_output:
+        console.print_json(_json.dumps(results))
+        return
+
+    console.print(report_table)
+    console.print(
+        f"\n[dim]Scanned last {blocks} blocks per wallet. "
+        f"Run [bold]arc portfolio analyze <address>[/bold] for full detail.[/dim]"
+    )
+
+
+def _portfolio_ai_analysis(snapshot) -> str:  # type: ignore[no-untyped-def]
+    """Call DevCopilot to generate a brief portfolio analysis."""
+    from arc_devkit.copilot.agent import DevCopilot
+
+    usdc_str = (
+        f"{snapshot.usdc_balance:.6f} USDC"
+        if snapshot.usdc_balance is not None
+        else "unavailable (contract pending on testnet)"
+    )
+    sent = sum(1 for tx in snapshot.recent_txs if tx.direction == "sent")
+    received = sum(1 for tx in snapshot.recent_txs if tx.direction == "received")
+    failed = sum(1 for tx in snapshot.recent_txs if tx.status == "failed")
+
+    prompt = (
+        f"Analyze this wallet on the Arc blockchain testnet and give a brief, "
+        f"practical summary (3-5 sentences).\n\n"
+        f"Wallet: {snapshot.address}\n"
+        f"Native (ARC) balance: {snapshot.native_balance:.6f}\n"
+        f"USDC balance: {usdc_str}\n"
+        f"Total txs ever sent (nonce): {snapshot.nonce}\n"
+        f"Blocks scanned: {snapshot.blocks_scanned} "
+        f"(#{snapshot.blocks_from} to #{snapshot.blocks_to})\n"
+        f"Txs found in window: {len(snapshot.recent_txs)} "
+        f"(sent: {sent}, received: {received}, failed: {failed})\n"
+        f"Activity score: {snapshot.activity_score}\n\n"
+        f"Focus on: balance health, activity patterns, and any notable observations."
+    )
+
+    return DevCopilot().ask(prompt)
+
+
+# ---------------------------------------------------------------------------
 # arc init — interactive wizard to create .env
 # ---------------------------------------------------------------------------
 
