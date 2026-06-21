@@ -1,4 +1,4 @@
-"""Comandos CLI para o Tx Debugger."""
+"""CLI commands for the Tx Debugger."""
 
 import typer
 from rich.console import Console
@@ -6,19 +6,19 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
-app = typer.Typer(help="Análise e debug de transações Arc.")
+app = typer.Typer(help="Transaction analysis and debugging for Arc.")
 console = Console()
 
 
 @app.command()
 def tx(
-    tx_hash: str = typer.Argument(..., help="Hash da transação a analisar (0x...)."),
-    json_output: bool = typer.Option(False, "--json", help="Exibir resultado em JSON bruto."),
+    tx_hash: str = typer.Argument(..., help="Transaction hash to analyze (0x...)."),
+    json_output: bool = typer.Option(False, "--json", help="Display result as raw JSON."),
 ) -> None:
     """
-    Analisa uma transação Arc e exibe diagnóstico completo.
+    Analyze an Arc transaction and display full diagnosis.
 
-    Exemplos:
+    Examples:
       arcdevkit debug tx 0xabc123...
       arcdevkit debug tx 0xabc123... --json
     """
@@ -29,45 +29,45 @@ def tx(
     analyzer = TxAnalyzer()
 
     with console.status(
-        f"[bold yellow]Analisando transação {tx_hash[:16]}...[/bold yellow]",
+        f"[bold yellow]Analyzing transaction {tx_hash[:16]}...[/bold yellow]",
         spinner="dots",
     ):
         resultado = analyzer.analyze(tx_hash)
 
-    # Saída JSON bruto
+    # Raw JSON output
     if json_output:
         console.print_json(json.dumps(resultado, default=str))
         return
 
-    # Tabela resumo
-    status = resultado.get("status", "desconhecido")
-    cor_status = "green" if status == "sucesso" else "red"
-    icone = "✓" if status == "sucesso" else "✗"
+    # Summary table
+    status = resultado.get("status", "unknown")
+    cor_status = "green" if status == "success" else "red"
+    icone = "✓" if status == "success" else "✗"
 
     tabela = Table(
-        title=f"Transação [dim]{tx_hash[:20]}...[/dim]",
+        title=f"Transaction [dim]{tx_hash[:20]}...[/dim]",
         show_header=True,
         header_style="bold yellow",
         border_style="yellow",
     )
-    tabela.add_column("Campo", style="bold", min_width=14)
-    tabela.add_column("Valor")
+    tabela.add_column("Field", style="bold", min_width=14)
+    tabela.add_column("Value")
 
     tabela.add_row("Hash", f"{tx_hash[:20]}...")
     tabela.add_row("Status", f"[{cor_status}]{icone} {status}[/{cor_status}]")
-    tabela.add_row("Custo Gás", f"{resultado.get('custo_usdc', 'N/A')} USDC")
+    tabela.add_row("Gas Cost", f"{resultado.get('custo_usdc', 'N/A')} USDC")
 
-    if resultado.get("erro"):
-        tabela.add_row("Erro", f"[red]{resultado['erro']}[/red]")
+    if resultado.get("error"):
+        tabela.add_row("Error", f"[red]{resultado['error']}[/red]")
 
     console.print(tabela)
 
-    # Análise em linguagem natural (se disponível)
-    if resultado.get("resumo"):
+    # Natural language analysis (if available)
+    if resultado.get("summary"):
         console.print(
             Panel(
-                Markdown(resultado["resumo"]),
-                title="[bold yellow]Análise[/bold yellow]",
+                Markdown(resultado["summary"]),
+                title="[bold yellow]Analysis[/bold yellow]",
                 border_style="yellow",
                 padding=(1, 2),
             )
@@ -76,35 +76,35 @@ def tx(
 
 @app.command()
 def estimate(
-    to: str = typer.Argument(..., help="Endereço EVM de destino."),
-    amount: float = typer.Argument(..., help="Valor a transferir (em USDC)."),
-    from_address: str = typer.Option("", "--from", help="Endereço remetente (opcional)."),
+    to: str = typer.Argument(..., help="Recipient EVM address."),
+    amount: float = typer.Argument(..., help="Amount to transfer (in USDC)."),
+    from_address: str = typer.Option("", "--from", help="Sender address (optional)."),
 ) -> None:
     """
-    Estima o custo de gás para uma transferência na Arc.
+    Estimate the gas cost for a transfer on Arc.
 
-    Exemplos:
+    Examples:
       arcdevkit debug estimate 0xDest... 10.5
-      arcdevkit debug estimate 0xDest... 10.5 --from 0xRemetente...
+      arcdevkit debug estimate 0xDest... 10.5 --from 0xSender...
     """
     from arc_devkit.core.gas import estimate_transfer
 
-    with console.status("[bold]Estimando custo de gás...[/bold]", spinner="dots"):
+    with console.status("[bold]Estimating gas cost...[/bold]", spinner="dots"):
         est = estimate_transfer(to, amount, from_address or None)
 
     tabela = Table(
-        title="Estimativa de Gás",
+        title="Gas Estimate",
         show_header=True,
         header_style="bold blue",
         border_style="blue",
     )
-    tabela.add_column("Campo", style="bold", min_width=16)
-    tabela.add_column("Valor")
+    tabela.add_column("Field", style="bold", min_width=16)
+    tabela.add_column("Value")
 
-    tabela.add_row("Destino", est["to"])
-    tabela.add_row("Transferência", f"{amount} USDC")
+    tabela.add_row("Recipient", est["to"])
+    tabela.add_row("Transfer", f"{amount} USDC")
     tabela.add_row("Gas Limit", str(est["gas_limit"]))
     tabela.add_row("Gas Price", f"{est['gas_price_gwei']} gwei")
-    tabela.add_row("Custo de Gás", f"[bold green]{est['custo_usdc']}[/bold green] USDC")
+    tabela.add_row("Gas Cost", f"[bold green]{est['custo_usdc']}[/bold green] USDC")
 
     console.print(tabela)
