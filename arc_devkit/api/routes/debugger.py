@@ -1,4 +1,4 @@
-"""Rotas API para o Tx Debugger."""
+"""API routes for the Tx Debugger."""
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ router = APIRouter()
 
 
 class GasEstimateResponse(BaseModel):
-    """Estimativa de custo de gás para uma transferência."""
+    """Gas cost estimate for a transfer."""
 
     gas_limit: int
     gas_price_gwei: str
@@ -18,16 +18,16 @@ class GasEstimateResponse(BaseModel):
     to: str
 
 
-@router.get("/estimate", response_model=GasEstimateResponse, summary="Estimar custo de gás")
+@router.get("/estimate", response_model=GasEstimateResponse, summary="Estimate gas cost")
 async def estimate_gas(
-    to: str = Query(..., description="Endereço EVM de destino."),
-    amount: float = Query(..., gt=0, description="Valor a transferir (em USDC)."),
-    from_address: str = Query("", description="Endereço remetente (opcional)."),
+    to: str = Query(..., description="Destination EVM address."),
+    amount: float = Query(..., gt=0, description="Amount to transfer (in USDC)."),
+    from_address: str = Query("", description="Sender address (optional)."),
 ) -> GasEstimateResponse:
     """
-    Estima o custo de gás para uma transferência nativa na Arc.
+    Estimate the gas cost for a native transfer on Arc.
 
-    Útil para exibir o custo ao usuário antes de confirmar uma transação.
+    Useful for showing the cost to the user before confirming a transaction.
     """
     from arc_devkit.core.gas import estimate_transfer
 
@@ -38,13 +38,13 @@ async def estimate_gas(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/{tx_hash}", summary="Analisar transação")
+@router.get("/{tx_hash}", summary="Analyze transaction")
 async def analyze(tx_hash: str) -> dict:
     """
-    Analisa uma transação Arc e retorna diagnóstico completo.
+    Analyze an Arc transaction and return a complete diagnosis.
 
-    Combina dados do RPC (receipt + trace) com análise do Dev Copilot
-    para gerar um relatório em linguagem natural em português.
+    Combines RPC data (receipt + trace) with Dev Copilot analysis
+    to produce a natural-language report.
     """
     from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 

@@ -1,4 +1,4 @@
-"""Rotas API para operações de carteira e agentes Arc."""
+"""API routes for Arc wallet and agent operations."""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -7,25 +7,27 @@ router = APIRouter()
 
 
 class WalletResponse(BaseModel):
-    """Dados de uma carteira criada ou consultada."""
+    """Data for a created or queried wallet."""
 
     address: str
     balance_wei: str | None = None
     balance_usdc: str | None = None
-    private_key: str | None = None  # presente apenas na criação
+    private_key: str | None = None  # present only on creation
 
 
 class PaymentRequest(BaseModel):
-    """Corpo da requisição de pagamento."""
+    """Request body for the payment endpoint."""
 
-    to: str = Field(..., description="Endereço EVM de destino.")
-    amount_usdc: float = Field(..., gt=0, description="Valor a transferir (em USDC).")
-    private_key: str = Field(..., description="Chave privada do remetente (hex).")
-    enviar: bool = Field(False, description="Se True, envia à rede; caso contrário retorna tx assinada.")
+    to: str = Field(..., description="Destination EVM address.")
+    amount_usdc: float = Field(..., gt=0, description="Amount to transfer (in USDC).")
+    private_key: str = Field(..., description="Sender's private key (hex).")
+    enviar: bool = Field(
+        False, description="If True, broadcasts to network; otherwise returns signed tx."
+    )
 
 
 class PaymentResponse(BaseModel):
-    """Resultado de um pagamento."""
+    """Result of a payment operation."""
 
     status: str
     from_address: str | None = Field(None, alias="from")
@@ -39,19 +41,19 @@ class PaymentResponse(BaseModel):
 
 
 class BlockResponse(BaseModel):
-    """Número do bloco atual na Arc."""
+    """Current block number on Arc."""
 
     block_number: int
     chain_id: int
 
 
-@router.post("/wallet", response_model=WalletResponse, summary="Criar nova carteira")
+@router.post("/wallet", response_model=WalletResponse, summary="Create new wallet")
 async def create_wallet() -> WalletResponse:
     """
-    Cria uma nova carteira EVM para uso na Arc.
+    Create a new EVM wallet for use on Arc.
 
-    A chave privada retornada é gerada localmente — armazene com segurança.
-    Este endpoint não armazena a chave privada.
+    The returned private key is generated locally — store it securely.
+    This endpoint does not persist the private key.
     """
     from arc_devkit.core.wallet import create_wallet
 
@@ -65,10 +67,10 @@ async def create_wallet() -> WalletResponse:
 @router.get(
     "/balance/{address}",
     response_model=WalletResponse,
-    summary="Consultar saldo de carteira",
+    summary="Query wallet balance",
 )
 async def get_balance(address: str) -> WalletResponse:
-    """Retorna o saldo nativo de um endereço Arc."""
+    """Return the native balance of an Arc address."""
     from arc_devkit.core.wallet import get_balance
 
     try:
@@ -82,13 +84,13 @@ async def get_balance(address: str) -> WalletResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/payment", response_model=PaymentResponse, summary="Executar pagamento")
+@router.post("/payment", response_model=PaymentResponse, summary="Execute payment")
 async def payment(body: PaymentRequest) -> PaymentResponse:
     """
-    Prepara e (opcionalmente) envia um pagamento na Arc.
+    Prepare and (optionally) send a payment on Arc.
 
-    Com `enviar=false` (padrão), retorna a transação assinada sem enviá-la.
-    Com `enviar=true`, transmite à rede e retorna o tx_hash.
+    With `enviar=false` (default), returns the signed transaction without broadcasting.
+    With `enviar=true`, transmits to the network and returns the tx_hash.
     """
     from arc_devkit.agents.payment_agent import PaymentAgent
 
@@ -96,7 +98,7 @@ async def payment(body: PaymentRequest) -> PaymentResponse:
         agente = PaymentAgent(private_key=body.private_key)
         resultado = agente.execute(to=body.to, amount_usdc=body.amount_usdc, enviar=body.enviar)
 
-        if resultado.get("status") == "erro":
+        if resultado.get("status") == "error":
             raise HTTPException(status_code=400, detail=resultado.get("error"))
 
         return PaymentResponse(
@@ -114,9 +116,9 @@ async def payment(body: PaymentRequest) -> PaymentResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get("/block", response_model=BlockResponse, summary="Bloco atual da Arc")
+@router.get("/block", response_model=BlockResponse, summary="Current Arc block")
 async def get_block() -> BlockResponse:
-    """Retorna o número do bloco mais recente e o chain ID da Arc."""
+    """Return the most recent block number and chain ID of Arc."""
     from arc_devkit.core.connection import get_web3
 
     try:
