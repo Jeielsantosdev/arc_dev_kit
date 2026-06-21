@@ -1,302 +1,392 @@
-# Começando com o Arc DevKit
+# Getting Started with Arc DevKit
 
-Este guia leva você do zero ao primeiro exemplo funcional na Arc testnet em menos de 10 minutos.
+This guide takes you from zero to a working example on the Arc testnet in under ten minutes.
 
-> **Versão atual:** 0.1.0 — MVP. As classes e métodos documentados aqui refletem o código disponível hoje.
+> **Current version:** 0.2+ — All classes and methods documented here reflect the current codebase.
 
 ---
 
-## Pré-requisitos
+## Prerequisites
 
-Antes de começar, certifique-se de ter:
-
-| Requisito | Versão mínima | Verificação |
+| Requirement | Minimum version | Check |
 |---|---|---|
 | Python | 3.11 | `python --version` |
 | pip | 23+ | `pip --version` |
-| Git | qualquer | `git --version` |
 
-Você também precisará de:
+You will also need:
 
-- **Chave da API Anthropic** — para o módulo Dev Copilot ([obter em console.anthropic.com](https://console.anthropic.com))
-- **Carteira EVM** — qualquer carteira compatível (MetaMask, Rabby, etc.)
-- **USDC de teste** — necessário para pagar o gás nas transações ([faucet da Arc testnet](https://faucet.arc.io))
+- **Anthropic API key** — required for Dev Copilot ([console.anthropic.com](https://console.anthropic.com))
+- **EVM wallet** — any compatible wallet (MetaMask, Rabby, etc.)
+- **Test USDC** — needed to pay gas on transactions ([Arc testnet faucet](https://faucet.arc.io))
 
 ---
 
-## Instalação
+## Installation
 
-### Opção 1: Instalação padrão (usuários finais)
+### Standard install
 
 ```bash
 pip install arc-devkit
 ```
 
-### Opção 2: Instalação para desenvolvimento (contribuidores)
+### Development install (contributors)
 
 ```bash
-# Clonar o repositório
-git clone https://github.com/seu-usuario/arc-devkit.git
+git clone https://github.com/jeielsantosdev/arc-devkit.git
 cd arc-devkit
-
-# Criar e ativar ambiente virtual (recomendado)
 python -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 # .venv\Scripts\activate         # Windows
-
-# Instalar com dependências de desenvolvimento
 pip install -e ".[dev]"
 ```
 
-A flag `-e` instala o pacote em modo "editável" — alterações no código refletem imediatamente sem reinstalar.
-
 ---
 
-## Configuração
+## Configuration
 
-Crie um arquivo `.env` na raiz do projeto (nunca commite este arquivo):
+Create `.env` in the project root (never commit this file):
 
 ```bash
 cp .env.example .env
 ```
 
-Preencha as variáveis:
+Fill in the variables:
 
 ```dotenv
-ANTHROPIC_API_KEY=sk-ant-...           # obrigatório — console.anthropic.com
-ARC_RPC_URL=https://arc-testnet.drpc.org # obrigatório
-ARC_CHAIN_ID=5042002                   # opcional — padrão já definido
-ARC_PRIVATE_KEY=0x...                  # opcional — necessário para enviar transações
+# Required
+ANTHROPIC_API_KEY=sk-ant-...
+ARC_RPC_URL=https://arc-testnet.drpc.org
+
+# Optional — defaults shown
+ARC_CHAIN_ID=5042002
+ARC_PRIVATE_KEY=0x...              # needed only for sending transactions
+ANTHROPIC_MODEL=claude-sonnet-4-6  # override the Claude model
 LOG_LEVEL=INFO
+API_KEY=your-secret-key            # enables X-API-Key auth on the REST API
 ```
 
-> `ARC_PRIVATE_KEY` é opcional — leitura da blockchain funciona sem ela. Nunca use a carteira principal aqui; crie uma carteira dedicada para testes.
-
-Adicione `.env` ao `.gitignore`:
+Add `.env` to `.gitignore`:
 
 ```bash
 echo ".env" >> .gitignore
 ```
 
----
-
-## Verificar conexão com a testnet
+Alternatively, run the interactive setup wizard:
 
 ```bash
-arcdevkit status
-```
-
-Saída esperada:
-
-```
-  Conectado   ✓ Sim
-  Bloco Atual #1_284_931
-  Chain ID    5042002
-  Gas Price   0.001 gwei
+arc init
 ```
 
 ---
 
-## Primeiro Exemplo: Conectar e ler a blockchain
+## Verify the Connection
+
+```bash
+arc status
+```
+
+Expected output:
+
+```
+╭─ Arc Testnet ──────────────────────────╮
+│ Status       ✓ connected               │
+│ Network      Arc Testnet               │
+│ Chain ID     5042002                   │
+│ Current block #1,284,931               │
+│ Gas price    0.001 gwei                │
+╰────────────────────────────────────────╯
+```
+
+---
+
+## Example 1 — Read the Blockchain
 
 ```python
 from arc_devkit.core.connection import get_web3, check_connection
 
-# Testar conexão
 if check_connection():
-    print("Conectado à Arc testnet!")
+    print("Connected to Arc testnet!")
 
-# Ler dados da rede
 w3 = get_web3()
-bloco = w3.eth.block_number
-chain_id = w3.eth.chain_id
-gas_price = w3.eth.gas_price
-
-print(f"Bloco atual:  #{bloco}")
-print(f"Chain ID:     {chain_id}")
-print(f"Gas price:    {w3.from_wei(gas_price, 'gwei')} gwei")
-```
-
-Saída esperada:
-
-```
-Conectado à Arc testnet!
-Bloco atual:  #1284931
-Chain ID:     5042002
-Gas price:    0.001 gwei
+print(f"Block:     #{w3.eth.block_number}")
+print(f"Chain ID:  {w3.eth.chain_id}")
+print(f"Gas price: {w3.from_wei(w3.eth.gas_price, 'gwei')} gwei")
 ```
 
 ---
 
-## Segundo Exemplo: Usar o Dev Copilot
+## Example 2 — Dev Copilot (blocking and streaming)
 
-O Dev Copilot usa `claude-sonnet-4-6` com contexto especializado em Arc.
+`DevCopilot` maintains conversation history across `ask()` calls within the same instance. Call `clear_history()` to reset between topics.
 
 ```python
 from arc_devkit.copilot.agent import DevCopilot
 
 copilot = DevCopilot()
 
-resposta = copilot.ask(
-    "Como faço para verificar o saldo USDC de uma carteira na Arc testnet?"
-)
-print(resposta)
+# Blocking — waits for the full response
+answer = copilot.ask("How do I check a USDC balance on Arc testnet?")
+print(answer)
+
+# Follow-up uses conversation history automatically
+follow_up = copilot.ask("Show me the same with async web3.py")
+print(follow_up)
+```
+
+For real-time output in terminals or WebSocket handlers, use the streaming iterator:
+
+```python
+for chunk in copilot.ask_stream("Generate a recurring payment contract in Solidity"):
+    print(chunk, end="", flush=True)
+print()
 ```
 
 Via CLI:
 
 ```bash
-arcdevkit copilot ask "Como criar um contrato ERC-20 na Arc?"
+arc ask "How does USDC gas work on Arc?"
+arc ask "Generate an ERC-20 contract for Arc" --stream
+arc ask "What is the Circle Agent Stack?" --json
 ```
 
 ---
 
-## Terceiro Exemplo: Criar carteira e consultar saldo
+## Example 3 — Create a Wallet
 
 ```bash
-# Criar nova carteira
-arcdevkit agent wallet create
-
-# Consultar saldo
-arcdevkit agent wallet balance --address 0xSuaCarteiraAqui
+arc wallet create
 ```
 
-Via Python:
+The private key is displayed once. Copy it to `ARC_PRIVATE_KEY` in your `.env` if you plan to send transactions, and fund it via the [Arc testnet faucet](https://faucet.arc.io).
 
 ```python
-from arc_devkit.agents.monitor_agent import MonitorAgent
-
-# Modo somente leitura (sem chave privada necessária)
-agente = MonitorAgent(watched_address="0xSuaCarteiraAqui")
-saldo = agente.get_balance()
-
-print(f"Endereço: {saldo['address']}")
-print(f"Saldo:    {saldo['balance_eth']} ETH/USDC")
+from arc_devkit.core.wallet import create_wallet
+wallet = create_wallet()
+print(wallet["address"])      # checksummed EVM address
+print(wallet["private_key"])  # 0x-prefixed hex — store securely
 ```
 
 ---
 
-## Quarto Exemplo: Estimar custo de gás
+## Example 4 — Check Balance
+
+```bash
+arc balance 0xYourAddress...
+arc balance 0xYourAddress... --json
+```
+
+```python
+from arc_devkit.core.wallet import get_balance
+result = get_balance("0xYourAddress...")
+print(result["balance_usdc"])  # Decimal, 18 decimals (native balance)
+```
+
+---
+
+## Example 5 — Gas Estimation
+
+Always estimate before sending, especially for contract interactions where the gas limit is not fixed at 21,000.
+
+```bash
+arc gas 0xDest... 10.0
+arc gas 0xDest... 10.0 --from 0xYourWallet...  # more precise
+```
 
 ```python
 from arc_devkit.core.gas import estimate_transfer
-
-estimativa = estimate_transfer(
-    to="0xDestinatarioAqui",
-    amount_usdc=10.0,
-)
-
-print(f"Gas limit:  {estimativa['gas_limit']}")
-print(f"Gas price:  {estimativa['gas_price_gwei']} gwei")
-print(f"Custo gás:  {estimativa['custo_usdc']} USDC")
-```
-
-Via CLI:
-
-```bash
-arcdevkit debug estimate 0xDestinatario... 10.0
+est = estimate_transfer(to="0xDest...", amount_usdc=10.0, from_address="0xYour...")
+print(f"Gas limit: {est['gas_limit']}")
+print(f"Gas cost:  {est['custo_usdc']} USDC")
 ```
 
 ---
 
-## Quinto Exemplo: Enviar pagamento
+## Example 6 — Send a Payment
+
+`PaymentAgent.execute()` auto-estimates gas via `eth_estimateGas` and optionally polls for the receipt. Pass `wait_receipt=False` if you need the hash immediately and will poll separately.
 
 ```python
 import os
 from arc_devkit.agents.payment_agent import PaymentAgent
 
-agente = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
+agent = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
 
-# Modo seguro: assina sem enviar (padrão — para revisão)
-resultado = agente.execute(to="0xDestino...", amount_usdc=5.0)
-print(resultado)  # status: "assinada", raw_transaction: "0x..."
+# Sign only — inspect the raw transaction before broadcasting
+result = agent.execute(to="0xDest...", amount_usdc=5.0)
+print(result["status"])         # "signed"
+print(result["raw_transaction"])
 
-# Enviar à rede:
-resultado = agente.execute(to="0xDestino...", amount_usdc=5.0, enviar=True)
-print(resultado)  # status: "enviada", tx_hash: "0x..."
+# Sign and broadcast, wait for confirmation
+result = agent.execute(
+    to="0xDest...",
+    amount_usdc=5.0,
+    enviar=True,
+    on_success=lambda receipt: print("Confirmed!", receipt["transactionHash"].hex()),
+)
+print(result["status"])   # "confirmed"
+print(result["tx_hash"])
 ```
 
-Via CLI:
+`execute_batch()` sends multiple payments in sequence with incrementing nonces, so they don't collide:
 
-```bash
-arcdevkit agent pay 0xDestino... 5.0          # assinar sem enviar
-arcdevkit agent pay 0xDestino... 5.0 --send   # enviar à rede
+```python
+payments = [
+    {"to": "0xAddr1...", "amount_usdc": 1.0, "enviar": True},
+    {"to": "0xAddr2...", "amount_usdc": 2.5, "enviar": True},
+]
+results = agent.execute_batch(payments)
+for r in results:
+    print(r["status"], r.get("tx_hash"))
 ```
 
 ---
 
-## Sexto Exemplo: Analisar uma transação
+## Example 7 — Monitor Multiple Wallets
+
+`MonitorAgent` polls all watched addresses on the same interval. The `min_change_wei` threshold silences noise from dust-level fluctuations. State persists across restarts when `state_file` is set, so the agent resumes from known balances rather than treating the first poll as a baseline.
+
+```python
+from arc_devkit.agents.monitor_agent import MonitorAgent
+
+agent = MonitorAgent(
+    watched_addresses=["0xWallet1...", "0xWallet2..."],
+    interval_seconds=10,
+    min_change_wei=10**15,          # ignore changes below 0.001 ARC
+    state_file="~/.arc_devkit/monitor_state.json",
+)
+
+def on_change(event: dict):
+    print(f"[{event['address'][:10]}] {event['tipo']}: {event['diferenca_wei']} wei")
+
+agent.execute(callback=on_change)
+```
+
+---
+
+## Example 8 — USDC Token Interactions
+
+```python
+from decimal import Decimal
+from arc_devkit.usdc import USDCToken
+
+usdc = USDCToken(contract_address="0xUSDCOnArc...")
+
+balance = usdc.balance("0xYourWallet...")
+print(f"USDC balance: {balance}")   # Decimal with 6 decimal places
+
+tx_hash = usdc.transfer(
+    to="0xRecipient...",
+    amount=Decimal("5.50"),
+    private_key="0xYourKey...",
+)
+print(f"Transfer tx: {tx_hash}")
+
+allowance = usdc.allowance(owner="0xOwner...", spender="0xSpender...")
+print(f"Allowance: {allowance} USDC")
+```
+
+---
+
+## Example 9 — Generic Contract Calls
+
+```python
+from arc_devkit.contracts import load_abi, call_view, send_tx, decode_events
+
+abi = load_abi("MyToken.json")  # list or {"abi": [...]}
+
+# Read-only call — no gas
+total = call_view(abi, "0xContract...", "totalSupply")
+print(total)
+
+# State-changing call
+tx_hash = send_tx(
+    abi, "0xContract...", "mint",
+    private_key="0x...",
+    "0xRecipient...", 1000,   # function args
+)
+```
+
+---
+
+## Example 10 — Debug a Transaction
+
+```bash
+arc debug 0xTxHash...
+arc debug 0xTxHash... --json
+arcdevkit debug tx 0xTxHash...
+```
 
 ```python
 from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 
-analyzer = TxAnalyzer()
-resultado = analyzer.analyze("0xHashDaTransacao...")
-
-print(f"Status:  {resultado['status']}")
-print(f"Custo:   {resultado['custo_usdc']} USDC")
-print(f"Resumo:\n{resultado['resumo']}")
-```
-
-Via CLI:
-
-```bash
-arcdevkit debug tx 0xHashDaTransacao...
-arcdevkit debug tx 0xHashDaTransacao... --json   # saída JSON bruta
+result = TxAnalyzer().analyze("0xTxHash...")
+print(result["status"])      # "success" or "reverted"
+print(result["custo_usdc"])  # gas cost as Decimal string
+print(result["resumo"])      # AI-generated diagnosis (Markdown)
 ```
 
 ---
 
-## API REST (opcional)
+## Example 11 — REST API
 
-Todos os módulos também estão disponíveis via HTTP:
+Start the server:
 
 ```bash
 uvicorn arc_devkit.api.main:app --reload
-# Acesse: http://localhost:8000/docs
 ```
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `POST` | `/copilot/ask` | Consultar o Dev Copilot |
-| `GET` | `/agents/balance/{address}` | Saldo de uma carteira |
-| `POST` | `/agents/payment` | Executar pagamento |
-| `GET` | `/debugger/tx/{hash}` | Analisar transação |
-| `GET` | `/debugger/block` | Bloco atual |
-
----
-
-## Estrutura de um Projeto Arc
-
-```
-meu-projeto-arc/
-├── .env                    # Variáveis de ambiente (nunca versionar!)
-├── .gitignore
-├── pyproject.toml
-├── README.md
-├── src/
-│   └── meu_projeto/
-│       ├── __init__.py
-│       ├── contratos/      # ABIs e endereços de contratos
-│       ├── agentes/        # Agentes econômicos do projeto
-│       └── scripts/        # Scripts utilitários
-└── tests/
-    ├── unit/
-    └── integration/        # Testes que requerem conexão com testnet
-```
-
----
-
-## Solução de Problemas
-
-### `EnvironmentError: Variáveis obrigatórias não configuradas`
+All endpoints require `X-API-Key` when `API_KEY` is set in the environment. Without `API_KEY`, authentication is disabled (useful for local development).
 
 ```bash
-cp .env.example .env   # criar .env a partir do exemplo
-# preencher ANTHROPIC_API_KEY e ARC_RPC_URL
+# Copilot — blocking
+curl -X POST http://localhost:8000/copilot/ask \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"prompt": "What is the Arc Agent Stack?"}'
+
+# Copilot — SSE streaming
+curl -N http://localhost:8000/copilot/ask/stream \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"prompt": "Generate a Solidity vault contract"}'
+
+# Health check — includes RPC latency
+curl http://localhost:8000/health
 ```
 
-### `Erro de conexão com a testnet`
+---
+
+## CLI Config Management
+
+```bash
+# Interactive setup wizard
+arc init
+
+# Read / write individual variables
+arc config get ARC_RPC_URL
+arc config set LOG_LEVEL DEBUG
+arc config list
+
+# View history of CLI operations (saved to ~/.arc_devkit/history.json)
+arc history
+arc history --limit 5 --json
+```
+
+---
+
+## Troubleshooting
+
+### `OSError: Required variables not configured: ANTHROPIC_API_KEY`
+
+```bash
+cp .env.example .env
+# fill in ANTHROPIC_API_KEY and ARC_RPC_URL
+```
+
+Or use the wizard: `arc init`
+
+### Connection failure on `arc status`
 
 ```bash
 curl -X POST https://arc-testnet.drpc.org \
@@ -304,25 +394,25 @@ curl -X POST https://arc-testnet.drpc.org \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```
 
-### `AuthenticationError` no Dev Copilot
+### `AuthenticationError` from Dev Copilot
 
 ```bash
-echo $ANTHROPIC_API_KEY   # deve começar com sk-ant-
+echo $ANTHROPIC_API_KEY   # must start with sk-ant-
 ```
 
 ### `ModuleNotFoundError: No module named 'arc_devkit'`
 
 ```bash
-pip install -e ".[dev]"   # modo desenvolvimento
-# ou
-pip install arc-devkit    # instalação padrão
+pip install -e ".[dev]"   # development mode
+# or
+pip install arc-devkit    # standard install
 ```
 
 ---
 
-## Próximos Passos
+## Next Steps
 
-- [Dev Copilot](modules/dev-copilot.md) — assistente de IA com contexto Arc
-- [Agent Starter Kit](modules/agent-starter-kit.md) — agentes de pagamento e monitoramento
-- [Tx Debugger](modules/tx-debugger.md) — análise de transações com IA
-- [CLI Guide](../cli-guide.md) — referência completa de todos os comandos
+- [Dev Copilot](modules/dev-copilot.md) — conversation history, streaming, token counting
+- [Agent Starter Kit](modules/agent-starter-kit.md) — PaymentAgent, MonitorAgent, USDC, Contracts
+- [Tx Debugger](modules/tx-debugger.md) — transaction analysis with AI
+- [CLI Guide](cli-guide.md) — complete command reference for both `arc` and `arcdevkit`

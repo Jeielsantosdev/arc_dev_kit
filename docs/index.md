@@ -1,67 +1,112 @@
 # Arc DevKit
 
-**Toolkit open source para desenvolvedores na Arc blockchain** — a Layer 1 da Circle com USDC como token de gás e finalidade de bloco em menos de 1 segundo.
+**Arc DevKit** is an open-source toolkit for developers building on the Arc blockchain — an EVM-compatible Layer 1 by Circle where USDC is the gas token and Malachite consensus delivers sub-second block finality.
 
 ---
 
-## Módulos
+## Modules
 
 ### Dev Copilot
-Assistente de IA com contexto Arc embutido. Responde perguntas técnicas, gera código Solidity e explica o ecossistema Circle — sem precisar colar documentação no chat a cada sessão.
+
+An AI assistant backed by `claude-sonnet-4-6` with Arc-specific context embedded in its system prompt. It maintains conversation history across turns, streams responses token by token, and caches identical prompts for up to five minutes. Inject custom context — such as a contract ABI — through the `extra_context` constructor argument to narrow its responses to your specific deployment.
 
 ```bash
-arcdevkit copilot ask "Como faço deploy de um ERC-20 na Arc testnet?"
+arc ask "How do I deploy an ERC-20 on Arc testnet?"
+arc ask "Explain the Circle Agent Stack" --stream
 ```
 
 ### Agent Starter Kit
-Classes base e templates para agentes econômicos autônomos. Inclui `PaymentAgent` (pagamentos USDC) e `MonitorAgent` (monitoramento de carteiras).
+
+`BaseAgent` is an abstract class that wires up RPC connection with automatic multi-RPC fallback and tenacity-backed retry. Two concrete implementations ship out of the box: `PaymentAgent`, which builds and signs transactions with automatic gas estimation, receipt polling, success/failure callbacks, and a `execute_batch()` method for sequential multi-payments; and `MonitorAgent`, which watches multiple wallets simultaneously, fires callbacks only when balance changes exceed a configurable threshold, and persists its last-seen state to disk across restarts.
 
 ```bash
-arcdevkit agent wallet create
-arcdevkit agent monitor 0xCarteiraAqui
+arc wallet create
+arc balance 0xYourAddress...
+arcdevkit agent pay 0xDest... 5.0 --send
+```
+
+### USDC
+
+`USDCToken` wraps the USDC ERC-20 contract on Arc. It exposes `balance()`, `transfer()`, `allowance()`, and `approve()` using `Decimal` with 6-decimal precision. The contract address ships as a zero-address placeholder; replace it with the official Arc testnet address once Circle publishes it.
+
+```python
+from arc_devkit.usdc import USDCToken
+usdc = USDCToken(contract_address="0x...")
+print(usdc.balance("0xYourWallet..."))
+```
+
+### Contracts
+
+Generic EVM contract utilities: `load_abi()` reads a JSON file in either raw-list or `{"abi": [...]}` format; `call_view()` executes read-only functions; `send_tx()` signs and broadcasts state-changing calls; `decode_events()` parses logs from a receipt into structured dicts.
+
+```python
+from arc_devkit.contracts import load_abi, call_view
+abi = load_abi("MyToken.json")
+supply = call_view(abi, "0xContract...", "totalSupply")
 ```
 
 ### Tx Debugger
-Busca os dados da transação via RPC, calcula o custo em USDC e gera um diagnóstico em linguagem natural com sugestão de correção.
+
+`TxAnalyzer.analyze()` fetches a transaction and its receipt via RPC, computes the USDC gas cost, and generates a natural-language diagnosis through Dev Copilot. The result includes raw transaction data alongside the AI summary so you can verify the analysis against on-chain facts.
 
 ```bash
-arcdevkit debug tx 0xHashDaTransacao...
+arc debug 0xTxHash...
+arcdevkit debug tx 0xTxHash... --json
 ```
+
+### REST API
+
+A FastAPI server exposing all modules over HTTP. The `/health` endpoint reports live RPC latency and block number. Authentication is opt-in via the `API_KEY` environment variable and the `X-API-Key` header. Rate limiting caps the health endpoint at 30 requests per minute. The copilot route includes an SSE streaming endpoint at `POST /copilot/ask/stream`.
+
+```bash
+uvicorn arc_devkit.api.main:app --reload
+# Swagger UI: http://localhost:8000/docs
+```
+
+### CLI
+
+Two entry points cover the same feature set. `arcdevkit` uses grouped subcommands (`arcdevkit copilot ask`, `arcdevkit agent pay`). `arc` is a flat command set for scripting (`arc ask`, `arc balance`, `arc config set`). Both support `--json` for machine-readable output and `-v` for debug logging.
 
 ---
 
-## Instalação rápida
+## Quick Start
 
 ```bash
 pip install arc-devkit
 ```
 
-Configure o `.env`:
+Configure your `.env`:
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
 ARC_RPC_URL=https://arc-testnet.drpc.org
+ARC_CHAIN_ID=5042002
+# Optional
+ARC_PRIVATE_KEY=0x...
+ANTHROPIC_MODEL=claude-sonnet-4-6
+API_KEY=your-api-key
 ```
 
-Verifique a conexão:
+Verify the connection:
 
 ```bash
-arcdevkit status
+arc status
 ```
 
 ---
 
-## Sobre a Arc
+## Arc Blockchain Reference
 
-| Característica | Detalhe |
+| Property | Value |
 |---|---|
-| **EVM-compatível** | Contratos Solidity sem modificação |
-| **USDC como gás** | Sem ETH ou token nativo separado |
-| **Consenso Malachite** | Finalidade sub-segundo |
-| **Circle Agent Stack** | Infraestrutura nativa para agentes econômicos |
-| **Testnet** | Ativa desde outubro 2025 |
-| **Mainnet** | Prevista para verão 2026 |
+| **EVM-compatible** | Solidity contracts without modification |
+| **Gas token** | USDC — no separate native token needed |
+| **Consensus** | Malachite — sub-second finality |
+| **Agent Stack** | Native infrastructure for autonomous economic agents |
+| **Testnet RPC** | `https://arc-testnet.drpc.org` |
+| **Chain ID** | `5042002` |
+| **Mainnet** | Planned Summer 2026 |
 
 ---
 
-[Começar agora →](getting-started.md)
+[Get started →](getting-started.md)

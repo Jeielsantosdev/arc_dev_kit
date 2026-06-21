@@ -1,321 +1,258 @@
-# Guia da CLI — Arc DevKit
+# CLI Reference — Arc DevKit
 
-Este guia mostra como usar o `arcdevkit` para construir e operar um projeto na Arc blockchain do zero, passando por todas as etapas: configuração, criação de carteira, consultas, pagamentos, monitoramento e debug de transações.
+Arc DevKit ships two CLI entry points that cover the same feature set from different angles. `arcdevkit` groups commands by domain (`arcdevkit copilot ask`, `arcdevkit agent pay`), which suits interactive use and tab-completion. `arc` is a flat command set designed for scripting and day-to-day terminal work — every command is one level deep and accepts `--json` for machine-readable output and `-v` for debug logging.
 
 ---
 
-## Instalação
+## Setup
 
 ```bash
 pip install arc-devkit
-# ou em modo de desenvolvimento
-pip install -e ".[dev]"
-```
-
-Verifique se a CLI está disponível:
-
-```bash
 arcdevkit --version
 ```
 
----
-
-## Configuração inicial
-
-Crie o arquivo `.env` na raiz do projeto:
+Run the interactive wizard to create your `.env` from scratch:
 
 ```bash
-cp .env.example .env
+arc init
 ```
 
-Preencha as variáveis obrigatórias:
+Or set individual variables:
 
-```dotenv
-# Obrigatórias
-ANTHROPIC_API_KEY=sk-ant-...      # console.anthropic.com
-ARC_RPC_URL=https://arc-testnet.drpc.org
-
-# Opcionais
-ARC_CHAIN_ID=5042002              # padrão já definido
-ARC_PRIVATE_KEY=0x...             # necessário para enviar transações
-LOG_LEVEL=INFO
+```bash
+arc config set ANTHROPIC_API_KEY sk-ant-...
+arc config set ARC_RPC_URL https://arc-testnet.drpc.org
+arc config list
 ```
-
-> `ARC_PRIVATE_KEY` é opcional — operações de leitura funcionam sem ela. Só adicione quando precisar assinar transações.
 
 ---
 
-## Verificar conexão com a testnet
+## `arcdevkit` — Grouped Commands
 
-Antes de qualquer coisa, confirme que a CLI consegue se conectar à Arc:
+### `arcdevkit status`
+
+Checks the Arc testnet connection and prints block number, chain ID, and gas price.
 
 ```bash
 arcdevkit status
 ```
 
-Saída esperada:
+### `arcdevkit copilot ask`
 
+Sends a question to Dev Copilot and displays the response as formatted Markdown.
+
+```bash
+arcdevkit copilot ask "How do I send USDC on Arc?"
+arcdevkit copilot ask "Generate an ERC-20 contract" --stream
+arcdevkit copilot ask "What is the Circle Agent Stack?" --json
 ```
-  Conectado   ✓ Sim
-  Bloco Atual #1_284_931
-  Chain ID    5042002
-  Gas Price   0.001 gwei
-```
 
----
+| Flag | Description |
+|---|---|
+| `--stream` | Stream response tokens as they arrive |
+| `--json` | Output raw JSON `{response, model}` |
 
-## Fluxo completo de um projeto
+### `arcdevkit agent create-wallet`
 
-### 1. Criar uma carteira
+Generates a new EVM key pair locally and prints the address and private key once.
 
 ```bash
 arcdevkit agent create-wallet
 ```
 
-A CLI gera um par de chaves localmente e exibe **uma única vez**:
+### `arcdevkit agent balance`
 
-```
-╭─── Nova Carteira Arc ───────────────────────────╮
-│ ✓ Nova carteira criada!                         │
-│                                                 │
-│ Endereço:                                       │
-│ 0xAbCd1234...                                   │
-│                                                 │
-│ Chave Privada:                                  │
-│ 0x4f3a...                                       │
-│                                                 │
-│ ⚠ ATENÇÃO: Guarde a chave em local seguro.      │
-╰─────────────────────────────────────────────────╯
-```
-
-Copie a chave privada para o `.env` (`ARC_PRIVATE_KEY`) se quiser enviar transações a partir desta carteira. Acesse o [faucet da Arc testnet](https://faucet.arc.io) para receber USDC de teste.
-
----
-
-### 2. Consultar saldo
+Queries the native balance of any address.
 
 ```bash
-arcdevkit agent balance 0xSeuEndereco...
+arcdevkit agent balance 0xYourAddress...
 ```
 
-```
-  Carteira: 0xAbCd1234...
-  Saldo:    10.500000 USDC
-```
+### `arcdevkit agent pay`
 
----
-
-### 3. Usar o Dev Copilot para orientação técnica
-
-O Dev Copilot é um assistente especializado em Arc. Use-o para gerar código, tirar dúvidas ou entender o ecossistema:
+Builds and signs a transfer transaction. Without `--send`, returns the signed raw transaction for inspection. The default mode is safe — nothing is broadcast until you explicitly add `--send`.
 
 ```bash
-arcdevkit copilot ask "Como criar um contrato ERC-20 que aceita USDC como pagamento na Arc?"
+arcdevkit agent pay 0xDest... 5.0               # sign only
+arcdevkit agent pay 0xDest... 5.0 --send        # sign and broadcast
+arcdevkit agent pay 0xDest... 5.0 --send --key 0xPrivateKey...
 ```
+
+### `arcdevkit agent monitor`
+
+Polls a wallet at a fixed interval and prints balance changes to the terminal. Press `Ctrl+C` to stop cleanly.
 
 ```bash
-arcdevkit copilot ask "Gere um script Python que envia 1 USDC para um endereço na Arc testnet"
+arcdevkit agent monitor 0xWallet...
+arcdevkit agent monitor 0xWallet... --interval 5 --max 50
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--interval N` | 15 | Polling interval in seconds |
+| `--max N` | 0 | Maximum iterations (0 = infinite) |
+
+### `arcdevkit debug tx`
+
+Fetches transaction data, calculates USDC gas cost, and generates an AI diagnosis.
 
 ```bash
-arcdevkit copilot ask "Quais são as diferenças entre a Arc e o Ethereum mainnet para um desenvolvedor?"
+arcdevkit debug tx 0xTxHash...
+arcdevkit debug tx 0xTxHash... --json
 ```
 
-O Copilot retorna respostas em Markdown com exemplos de código prontos para uso, sempre considerando que USDC é o token de gás da Arc.
+### `arcdevkit debug estimate`
 
----
-
-### 4. Estimar o custo de gás antes de enviar
-
-Antes de executar qualquer transação, estime o custo:
+Estimates the gas cost for a native transfer before sending.
 
 ```bash
-arcdevkit debug estimate 0xDestinatario... 5.0
-```
-
-```
-╭── Estimativa de Gás ──────────────────╮
-│ Destino      0xDestinatario...        │
-│ Transferência 5.0 USDC                │
-│ Gas Limit    21000                    │
-│ Gas Price    0.001 gwei               │
-│ Custo de Gás 0.000021 USDC            │
-╰───────────────────────────────────────╯
-```
-
-Para uma estimativa mais precisa, informe o endereço remetente:
-
-```bash
-arcdevkit debug estimate 0xDestinatario... 5.0 --from 0xSuaCarteira...
+arcdevkit debug estimate 0xDest... 10.0
+arcdevkit debug estimate 0xDest... 10.0 --from 0xYourWallet...
 ```
 
 ---
 
-### 5. Enviar um pagamento
+## `arc` — Flat Commands
 
-**Modo seguro (padrão) — assina sem enviar:**
-
-```bash
-arcdevkit agent pay 0xDestinatario... 5.0
-```
-
-Retorna a transação assinada em formato hex. Útil para revisar antes de transmitir.
-
-**Enviar à rede:**
+### `arc status`
 
 ```bash
-arcdevkit agent pay 0xDestinatario... 5.0 --send
+arc status
+arc status --json
+arc status -v        # with debug logging
 ```
 
-Requer `ARC_PRIVATE_KEY` configurada no `.env`. Alternativamente, passe a chave direto:
+### `arc ask`
 
 ```bash
-arcdevkit agent pay 0xDestinatario... 5.0 --send --key 0xSuaChavePrivada
+arc ask "How does Malachite consensus affect my contract?"
+arc ask "Generate a Solidity vault" --stream
+arc ask "What is USDC gas?" --json
+arc ask "Explain Arc testnet" --raw    # plain text, no Markdown rendering
 ```
 
-Saída ao enviar:
-
-```
-╭── Pagamento Arc ────────────────────────────────╮
-│ Status  enviada                                 │
-│ De      0xSuaCarteira...                        │
-│ Para    0xDestinatario...                       │
-│ Valor   5.0 USDC                               │
-│ TX Hash 0xdeadbeef...                           │
-╰─────────────────────────────────────────────────╯
-```
-
----
-
-### 6. Monitorar uma carteira
-
-Para acompanhar em tempo real as mudanças de saldo de um endereço:
-
-```bash
-arcdevkit agent monitor 0xCarteira...
-```
-
-```
-╭─ Monitorando: 0xCarteira... ───────────────────╮
-│ Intervalo: 15s  |  Ctrl+C para parar           │
-╰─────────────────────────────────────────────────╯
-  +1000000000000000000 wei (credito) → saldo: 2000000000000000000 wei
-  -500000000000000000 wei (debito)  → saldo: 1500000000000000000 wei
-```
-
-Opções úteis:
-
-```bash
-# Polling a cada 5 segundos, máximo de 50 verificações
-arcdevkit agent monitor 0xCarteira... --interval 5 --max 50
-```
-
-Pressione `Ctrl+C` a qualquer momento para encerrar sem erros.
-
----
-
-### 7. Debugar uma transação
-
-Se uma transação falhou ou você quer entender o que aconteceu:
-
-```bash
-arcdevkit debug tx 0xHashDaTransacao...
-```
-
-A CLI busca os dados via RPC e passa para o Dev Copilot gerar um diagnóstico:
-
-```
-╭── Transação 0xHashDaTransacao... ─────────────────────────────╮
-│ Hash    0xHashDaTransacao...                                   │
-│ Status  ✗ revertida                                            │
-│ Custo Gás  0.000021 USDC                                       │
-╰────────────────────────────────────────────────────────────────╯
-
-╭── Análise ─────────────────────────────────────────────────────╮
-│ ## O que a transação fez                                       │
-│ Tentativa de transferência de 10 USDC para 0xDest...           │
-│                                                                │
-│ ## Status                                                      │
-│ Falha — saldo insuficiente para cobrir o valor + gás.          │
-│                                                                │
-│ ## Sugestão                                                    │
-│ Reduza o valor da transferência ou adicione USDC à carteira.   │
-╰────────────────────────────────────────────────────────────────╯
-```
-
-Para inspecionar os dados brutos em JSON:
-
-```bash
-arcdevkit debug tx 0xHashDaTransacao... --json
-```
-
----
-
-## Referência rápida dos comandos
-
-| Comando | Descrição |
+| Flag | Description |
 |---|---|
-| `arcdevkit status` | Verifica conexão com a Arc e exibe info da rede |
-| `arcdevkit copilot ask "<pergunta>"` | Consulta o Dev Copilot com contexto Arc |
-| `arcdevkit agent create-wallet` | Cria nova carteira EVM |
-| `arcdevkit agent balance <addr>` | Consulta saldo de um endereço |
-| `arcdevkit agent status` | Tabela com bloco atual, chain ID e gas price |
-| `arcdevkit agent pay <to> <amount>` | Prepara pagamento assinado (sem enviar) |
-| `arcdevkit agent pay <to> <amount> --send` | Assina e envia o pagamento à rede |
-| `arcdevkit agent monitor <addr>` | Monitora mudanças de saldo em tempo real |
-| `arcdevkit debug tx <hash>` | Análise completa de uma transação com IA |
-| `arcdevkit debug tx <hash> --json` | Saída JSON bruta da análise |
-| `arcdevkit debug estimate <to> <amount>` | Estima custo de gás em USDC |
-| `arcdevkit --version` | Exibe a versão instalada |
-| `arcdevkit --help` | Lista todos os comandos disponíveis |
+| `--stream / -s` | Stream response token by token |
+| `--json` | Output `{response, model}` as JSON |
+| `--raw` | Plain text without Rich Markdown rendering |
+| `-v` | Enable debug logging |
+
+### `arc balance`
+
+```bash
+arc balance 0xAddress...
+arc balance 0xAddress... --json
+```
+
+### `arc gas`
+
+```bash
+arc gas 0xDest... 10.0
+arc gas 0xDest... 10.0 --from 0xYourWallet...
+arc gas 0xDest... 10.0 --json
+```
+
+### `arc debug`
+
+Analyzes a transaction and saves the result to `~/.arc_devkit/history.json` automatically.
+
+```bash
+arc debug 0xTxHash...
+arc debug 0xTxHash... --json
+arc debug 0xTxHash... -v
+```
+
+### `arc codegen`
+
+Generates a complete Python script for Arc from a natural-language description. The generated code is saved to a timestamped file by default.
+
+```bash
+arc codegen "monitor a wallet and send an alert when balance drops below 1 USDC"
+arc codegen "send 10 USDC to a list of addresses from a CSV file" --no-save
+arc codegen "deploy an ERC-20 with a mint function" --out ./scripts
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--save / --no-save` | `--save` | Save generated script to disk |
+| `--out DIR` | `.` | Output directory |
+
+### `arc config`
+
+Reads and writes variables in the local `.env` file. Sensitive values (those containing "KEY" in the name) are masked when listed.
+
+```bash
+arc config get ARC_RPC_URL
+arc config set LOG_LEVEL DEBUG
+arc config list
+```
+
+### `arc wallet`
+
+```bash
+arc wallet create
+arc wallet create --json        # output as JSON {address, private_key}
+arc wallet balance 0xAddress...
+arc wallet balance 0xAddress... --json
+```
+
+### `arc history`
+
+Lists recent CLI operations saved to `~/.arc_devkit/history.json`. The `debug` command populates this file automatically.
+
+```bash
+arc history
+arc history --limit 5
+arc history --json
+```
+
+### `arc init`
+
+Interactive wizard that creates `.env` by prompting for each required variable. If `.env` already exists, it asks before overwriting.
+
+```bash
+arc init
+```
 
 ---
 
-## Dicas para o dia a dia
+## Environment Variables
 
-**Sempre estime o gás antes de enviar:**
-
-```bash
-arcdevkit debug estimate 0xDest... 100.0 --from 0xSua...
-arcdevkit agent pay 0xDest... 100.0 --send
-```
-
-**Use o Copilot para gerar contratos e scripts:**
-
-```bash
-arcdevkit copilot ask "Gere um agente Python que monitora saldo e envia alerta quando cair abaixo de 1 USDC"
-```
-
-**Debug imediato após qualquer transação suspeita:**
-
-```bash
-arcdevkit debug tx 0xHash...
-```
-
-**Monte um pipeline de deploy:**
-
-```bash
-arcdevkit status && \
-arcdevkit debug estimate 0xDest... 50.0 && \
-arcdevkit agent pay 0xDest... 50.0 --send
-```
-
----
-
-## Variáveis de ambiente
-
-| Variável | Obrigatória | Padrão | Descrição |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | Sim | — | Chave da API Anthropic (Dev Copilot) |
-| `ARC_RPC_URL` | Sim | — | URL do nó RPC da Arc |
-| `ARC_CHAIN_ID` | Não | `5042002` | Chain ID da Arc |
-| `ARC_PRIVATE_KEY` | Não | — | Chave privada para assinar transações |
-| `LOG_LEVEL` | Não | `INFO` | Nível de log (`DEBUG`, `INFO`, `WARNING`) |
+| `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key (Dev Copilot) |
+| `ARC_RPC_URL` | Yes | — | Arc node RPC URL (comma-separated for multi-RPC) |
+| `ARC_CHAIN_ID` | No | `5042002` | Arc chain ID |
+| `ARC_PRIVATE_KEY` | No | — | Private key for signing transactions |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-6` | Claude model override |
+| `LOG_LEVEL` | No | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`) |
+| `API_KEY` | No | — | Enables X-API-Key auth on the REST API |
 
 ---
 
-## Próximos passos
+## Quick Reference
 
-- **API REST** — todos os comandos acima também estão disponíveis via HTTP. Veja a [documentação da API](./modules/dev-copilot.md) ou acesse `/docs` com o servidor rodando (`uvicorn arc_devkit.api.main:app --reload`).
-- **Agentes econômicos** — use o `PaymentAgent` e `MonitorAgent` como base para construir automações mais complexas.
-- **Contratos inteligentes** — peça ao Dev Copilot para gerar e explicar contratos Solidity otimizados para a Arc.
+| Command | Description |
+|---|---|
+| `arc status` | Verify Arc testnet connection |
+| `arc ask "<question>"` | Query Dev Copilot |
+| `arc ask "<question>" --stream` | Stream response tokens |
+| `arc balance <addr>` | Check wallet native balance |
+| `arc gas <to> <amount>` | Estimate gas cost in USDC |
+| `arc debug <hash>` | Analyze a transaction with AI |
+| `arc codegen "<desc>"` | Generate a Python script for Arc |
+| `arc config get <KEY>` | Read a variable from .env |
+| `arc config set <KEY> <val>` | Write a variable to .env |
+| `arc config list` | List all .env variables |
+| `arc wallet create` | Generate a new EVM wallet |
+| `arc wallet balance <addr>` | Show wallet balance |
+| `arc history` | List recent CLI operations |
+| `arc init` | Interactive .env setup wizard |
+| `arcdevkit status` | Same as `arc status` |
+| `arcdevkit copilot ask "<q>"` | Grouped Dev Copilot command |
+| `arcdevkit agent pay <to> <amt>` | Prepare payment (sign only) |
+| `arcdevkit agent pay <to> <amt> --send` | Sign and broadcast |
+| `arcdevkit agent monitor <addr>` | Monitor wallet balance |
+| `arcdevkit debug tx <hash>` | Debug transaction |
+| `arcdevkit debug estimate <to> <amt>` | Estimate gas |
