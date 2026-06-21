@@ -1,1 +1,1 @@
-"""Módulo core — conexão RPC e operações de carteira Arc."""
+"""Core module — RPC connection and Arc wallet operations."""
