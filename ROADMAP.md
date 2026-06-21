@@ -94,7 +94,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🔴 **`PortfolioAnalyzer.analyze(address)`** — `PortfolioSnapshot` com saldo nativo, USDC, nonce e txs recentes
 - [x] 🔴 **Varredura de transações recentes** — `_scan_transactions()` escaneia últimos N blocos; filtra por endereço (sent/received)
 - [x] 🔴 **Comando `arc portfolio analyze <address>`** — rich table de saldos + tabela de txs + análise de IA
-- [ ] 🟡 **Histórico de saldo** — salvar snapshots periódicos e plotar variação (usando `rich` ou exportando CSV)
+- [x] 🟡 **Histórico de saldo** — salvar snapshots periódicos e plotar variação (usando `rich` ou exportando CSV)
 - [x] 🟡 **Suporte a múltiplas carteiras** — `arc portfolio report wallets.json` gera relatório consolidado
 - [x] 🟢 **Score de atividade** — `_compute_activity_score()`: inactive / low / medium / high com base no volume de txs
 
@@ -113,7 +113,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 ## 8. Testes e Qualidade
 
 - [x] 🔴 **Cobertura mínima de 80%** — configurar `pytest-cov` e falhar CI abaixo do threshold
-- [ ] 🔴 **Testes de integração marcados** — testes `@pytest.mark.integration` rodando contra `arc-testnet.drpc.org` em CI separado
+- [x] 🔴 **Testes de integração marcados** — testes `@pytest.mark.integration` rodando contra `arc-testnet.drpc.org` em CI separado
 - [x] 🔴 **Type checking com mypy** — adicionar `mypy` ao `pyproject.toml` e corrigir todos os erros de tipo
 - [x] 🟡 **Testes de contrato da API** — usar `httpx.AsyncClient` no pytest para testar todos os endpoints da FastAPI
 - [x] 🟡 **Testes de CLI** — usar `typer.testing.CliRunner` para cobrir todos os subcomandos com mocks
