@@ -104,7 +104,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 - [x] 🔴 **`arc_devkit/contracts/`** — `load_abi()`, `call_view()`, `send_tx()`, `decode_events()`
 - [x] 🔴 **`arc_devkit/usdc/`** — `USDCToken`: `balance()`, `transfer()`, `allowance()`, `approve()`
-- [ ] 🟡 **`arc_devkit/events/`** — `EventListener`: escuta logs por tópico/contrato e chama callbacks (base para DeFi bots)
+- [x] 🟡 **`arc_devkit/events/`** — `EventListener`: escuta logs por tópico/contrato e chama callbacks (base para DeFi bots)
 - [ ] 🟡 **`arc_devkit/deploy/`** — `ContractDeployer`: compila Solidity (via `py-solc-x`) e faz deploy na Arc testnet
 - [ ] 🟢 **`arc_devkit/oracle/`** — integração com feed de preços on-chain ou Chainlink para converter valores ARC ↔ USD
 

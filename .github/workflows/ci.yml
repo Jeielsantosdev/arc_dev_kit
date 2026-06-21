@@ -6,9 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  ANTHROPIC_API_KEY: sk-ant-test-key
+  ARC_RPC_URL: https://arc-testnet.drpc.org
+  ARC_CHAIN_ID: "5042002"
+  LOG_LEVEL: WARNING
+
 jobs:
   lint:
-    name: Lint
+    name: Lint & type-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +32,9 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check .
+
+      - name: Mypy
+        run: mypy arc_devkit
 
   test:
     name: Tests (Python ${{ matrix.python-version }})
@@ -47,9 +56,29 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run unit tests
+        run: pytest --tb=short -q
+
+  integration:
+    name: Integration tests (Arc testnet)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run integration tests
         env:
-          ANTHROPIC_API_KEY: sk-ant-test-key
-          ARC_RPC_URL: https://arc-testnet.drpc.org
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          ARC_PRIVATE_KEY: ${{ secrets.ARC_PRIVATE_KEY }}
           ARC_CHAIN_ID: "5042002"
           LOG_LEVEL: WARNING
-        run: pytest --tb=short -q
+        run: pytest -m integration --tb=short -q
