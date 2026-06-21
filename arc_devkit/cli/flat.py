@@ -43,6 +43,23 @@ _HISTORY_FILE = Path.home() / ".arc_devkit" / "history.json"
 _ENV_FILE = Path(".env")
 
 
+def _load_abi_optional(abi_path: str) -> list | None:
+    """Load ABI from file path. Returns None if path is empty or file not found."""
+    if not abi_path:
+        return None
+    path = Path(abi_path)
+    if not path.exists():
+        console.print(f"[red]ABI file not found:[/red] {abi_path}")
+        raise typer.Exit(1)
+    try:
+        from arc_devkit.contracts.loader import load_abi
+
+        return load_abi(path)
+    except Exception as exc:
+        console.print(f"[red]Failed to load ABI:[/red] {exc}")
+        raise typer.Exit(1)
+
+
 def _validate_address(address: str) -> str:
     """Validate and return the EVM address in checksum format. Prints a friendly error if invalid."""
     from web3 import Web3
@@ -233,15 +250,20 @@ def gas(
 @app.command()
 def debug(
     tx_hash: str = typer.Argument(..., help="Transaction hash (0x...)."),
+    abi_path: str = typer.Option(
+        "", "--abi", "-a", help="Path to ABI JSON file for input/error decoding."
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
 ) -> None:
-    """Analyze an Arc transaction and display AI-powered diagnosis."""
+    """Analyze an Arc transaction with AI diagnosis and optional ABI decoding."""
     _set_verbose(verbose)
     from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 
+    abi = _load_abi_optional(abi_path)
+
     with console.status(f"Analyzing {tx_hash[:16]}...", spinner="dots"):
-        resultado = TxAnalyzer().analyze(tx_hash)
+        resultado = TxAnalyzer().analyze(tx_hash, abi=abi)
 
     _save_history({"type": "debug", "tx_hash": tx_hash, "result": resultado})
 
@@ -260,19 +282,122 @@ def debug(
     tabela.add_row("Status", f"[{cor}]{icone} {status_str}[/{cor}]")
     tabela.add_row("Gas cost", f"{resultado.get('custo_usdc', 'N/A')} USDC")
 
+    if resultado.get("revert_reason"):
+        tabela.add_row("Revert reason", f"[red]{resultado['revert_reason']}[/red]")
+
+    if resultado.get("decoded_input"):
+        di = resultado["decoded_input"]
+        args_str = ", ".join(f"{k}={v}" for k, v in di.get("args", {}).items())
+        tabela.add_row("Function called", f"[cyan]{di['function']}({args_str})[/cyan]")
+
     console.print(
         Panel(tabela, title="[bold magenta]Transaction[/bold magenta]", border_style="magenta")
     )
 
-    if resultado.get("resumo"):
+    if resultado.get("summary"):
         console.print(
             Panel(
-                Markdown(resultado["resumo"]),
+                Markdown(resultado["summary"]),
                 title="[bold magenta]AI Analysis[/bold magenta]",
                 border_style="magenta",
                 padding=(1, 2),
             )
         )
+
+
+@app.command("debug-batch")
+def debug_batch(
+    hashes_file: str = typer.Argument(
+        ..., help="Text file with one tx hash per line (or JSON array)."
+    ),
+    abi_path: str = typer.Option(
+        "", "--abi", "-a", help="Path to ABI JSON file applied to all transactions."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
+) -> None:
+    """Analyze multiple transactions from a file (one hash per line or JSON array)."""
+    _set_verbose(verbose)
+
+    hashes_path = Path(hashes_file)
+    if not hashes_path.exists():
+        console.print(f"[red]File not found:[/red] {hashes_file}")
+        raise typer.Exit(1)
+
+    raw = hashes_path.read_text().strip()
+    if raw.startswith("["):
+        try:
+            tx_hashes = _json.loads(raw)
+        except Exception as exc:
+            console.print(f"[red]Invalid JSON:[/red] {exc}")
+            raise typer.Exit(1)
+    else:
+        tx_hashes = [line.strip() for line in raw.splitlines() if line.strip()]
+
+    if not tx_hashes:
+        console.print("[red]No transaction hashes found in file.[/red]")
+        raise typer.Exit(1)
+
+    abi = _load_abi_optional(abi_path)
+
+    from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+    analyzer = TxAnalyzer()
+
+    if json_output:
+        # Silent run — no progress display so stdout is clean JSON
+        results = analyzer.analyze_batch(tx_hashes, abi=abi)
+        _save_history({"type": "debug-batch", "count": len(results), "hashes_file": hashes_file})
+        console.print_json(_json.dumps(results))
+        return
+
+    from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
+
+    with Progress(
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Analyzing transactions", total=len(tx_hashes))
+
+        def on_progress(current: int, total: int, tx_hash: str) -> None:
+            progress.update(task, completed=current - 1, description=f"{tx_hash[:16]}...")
+
+        results = analyzer.analyze_batch(tx_hashes, abi=abi, on_progress=on_progress)
+        progress.update(task, completed=len(tx_hashes), description="Done")
+
+    _save_history({"type": "debug-batch", "count": len(results), "hashes_file": hashes_file})
+
+    summary_table = Table(
+        title=f"Batch Analysis — {len(results)} transactions",
+        border_style="magenta",
+        show_lines=False,
+    )
+    summary_table.add_column("Hash", style="dim")
+    summary_table.add_column("Status")
+    summary_table.add_column("Gas cost (USDC)", justify="right")
+    summary_table.add_column("Revert reason")
+
+    for r in results:
+        st = r.get("status", "?")
+        cor = "green" if st == "success" else "red" if st == "reverted" else "yellow"
+        revert = r.get("revert_reason") or ""
+        if len(revert) > 40:
+            revert = revert[:40] + "..."
+        summary_table.add_row(
+            (r.get("hash") or "")[:20] + "...",
+            f"[{cor}]{st}[/{cor}]",
+            r.get("custo_usdc", "0"),
+            f"[red]{revert}[/red]" if revert else "[dim]—[/dim]",
+        )
+
+    console.print(summary_table)
+    ok = sum(1 for r in results if r.get("status") == "success")
+    fail = len(results) - ok
+    console.print(
+        f"\n[green]✓ {ok} succeeded[/green]  [red]✗ {fail} failed[/red]"
+    )
 
 
 @app.command()
