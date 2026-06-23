@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from web3 import Web3
 
@@ -261,7 +261,8 @@ class PortfolioAnalyzer:
                 logger.debug("Block %d unavailable: %s", number, exc)
                 continue
 
-            for tx in block.get("transactions", []):
+            for _raw_tx in block.get("transactions", []):
+                tx: Any = _raw_tx
                 tx_from = (tx.get("from") or "").lower()
                 tx_to = (tx.get("to") or "").lower()
 

@@ -79,8 +79,8 @@ async def get_balance(address: str) -> WalletResponse:
     try:
         resultado = get_balance(address)
         return WalletResponse(
-            address=resultado["address"],
-            balance_wei=resultado["balance_wei"],
+            address=str(resultado["address"]),
+            balance_wei=str(resultado["balance_wei"]),
             balance_usdc=str(resultado["balance_usdc"]),
         )
     except Exception as exc:

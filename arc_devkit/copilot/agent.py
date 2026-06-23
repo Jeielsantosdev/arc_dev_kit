@@ -4,8 +4,10 @@ import hashlib
 import logging
 import time
 from collections.abc import Iterator
+from typing import cast
 
 import anthropic
+from anthropic.types import MessageParam, TextBlock
 
 from arc_devkit.config import settings
 
@@ -91,10 +93,11 @@ class DevCopilot:
             model=self.model,
             max_tokens=self.MAX_TOKENS,
             system=self._system,
-            messages=list(self._history),  # pass copy to avoid leaking mutable state by reference
+            messages=cast(list[MessageParam], list(self._history)),
         )
 
-        response_text = message.content[0].text
+        text_blocks = [b for b in message.content if isinstance(b, TextBlock)]
+        response_text = text_blocks[0].text
         self._history.append({"role": "assistant", "content": response_text})
 
         usage = message.usage
@@ -124,7 +127,7 @@ class DevCopilot:
             model=self.model,
             max_tokens=self.MAX_TOKENS,
             system=self._system,
-            messages=self._history,
+            messages=cast(list[MessageParam], self._history),
         ) as stream:
             for text in stream.text_stream:
                 chunks.append(text)

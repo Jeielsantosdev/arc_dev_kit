@@ -38,7 +38,7 @@ def load_abi(path: str | Path) -> list[dict]:
         return data
     if isinstance(data, dict):
         if "abi" in data:
-            return data["abi"]
+            return list(data["abi"])
         raise ValueError(f"JSON does not contain 'abi' key: {arquivo}")
     raise ValueError(f"Invalid ABI format in: {arquivo}")
 

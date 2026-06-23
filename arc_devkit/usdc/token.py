@@ -132,7 +132,7 @@ class USDCToken:
 
     def _from_atomic(self, amount: int) -> Decimal:
         """Convert atomic units (int) to USDC (Decimal)."""
-        return Decimal(amount) / USDC_MULTIPLIER
+        return Decimal(str(Decimal(amount) / USDC_MULTIPLIER))
 
     def balance(self, address: str) -> Decimal:
         """

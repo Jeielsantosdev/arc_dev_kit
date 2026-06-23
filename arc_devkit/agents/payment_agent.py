@@ -4,8 +4,11 @@ import logging
 import time
 from collections.abc import Callable
 from decimal import Decimal
+from typing import Any, cast
 
+from eth_typing import ChecksumAddress
 from web3 import Web3
+from web3.types import TxParams
 
 from arc_devkit.agents.base_agent import BaseAgent
 
@@ -33,7 +36,7 @@ class PaymentAgent(BaseAgent):
         if not self._address:
             return {"error": "No private key configured — read-only mode."}
 
-        wei = self._w3.eth.get_balance(self._address)
+        wei = self._w3.eth.get_balance(cast(ChecksumAddress, self._address))
         balance = Decimal(str(self._w3.from_wei(wei, "ether")))
 
         return {
@@ -42,7 +45,7 @@ class PaymentAgent(BaseAgent):
             "balance_usdc": balance,
         }
 
-    def _estimate_gas(self, tx: dict) -> int:
+    def _estimate_gas(self, tx: TxParams) -> int:
         """Call eth_estimateGas; return 21,000 as fallback."""
         try:
             return self._w3.eth.estimate_gas(tx)
@@ -50,7 +53,7 @@ class PaymentAgent(BaseAgent):
             logger.warning("eth_estimateGas failed (%s), using 21,000", exc)
             return 21_000
 
-    def _wait_for_receipt(self, tx_hash: bytes, timeout: int = _RECEIPT_TIMEOUT) -> dict | None:
+    def _wait_for_receipt(self, tx_hash: Any, timeout: int = _RECEIPT_TIMEOUT) -> dict | None:
         """Poll eth_getTransactionReceipt until confirmed or timeout."""
         start = time.time()
         while time.time() - start < timeout:
@@ -63,7 +66,7 @@ class PaymentAgent(BaseAgent):
             time.sleep(_RECEIPT_POLL_INTERVAL)
         return None
 
-    def _simulate(self, tx: dict) -> bool:
+    def _simulate(self, tx: TxParams) -> bool:
         """Simulate transaction via eth_call to detect reverts before sending."""
         try:
             self._w3.eth.call(tx)
@@ -79,22 +82,22 @@ class PaymentAgent(BaseAgent):
         usdc_address = Web3.to_checksum_address(USDC_ARC_TESTNET_ADDRESS)
         contract = self._w3.eth.contract(address=usdc_address, abi=_ERC20_ABI)
         atomic = int(amount * Decimal(str(USDC_MULTIPLIER)))
-        nonce = self._w3.eth.get_transaction_count(self._address)
+        nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
 
         tx = contract.functions.transfer(to, atomic).build_transaction(
-            {
+            cast(TxParams, {
                 "from": self._address,
                 "nonce": nonce,
                 "gasPrice": self._w3.eth.gas_price,
                 "chainId": self._w3.eth.chain_id,
-            }
+            })
         )
-        gas_limit = self._estimate_gas(tx)
+        gas_limit = self._estimate_gas(cast(TxParams, tx))
         tx["gas"] = gas_limit
         signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
         return signed, gas_limit
 
-    def execute(
+    def execute(  # type: ignore[override]
         self,
         to: str,
         amount_usdc: float,
@@ -133,16 +136,16 @@ class PaymentAgent(BaseAgent):
                 self.log("USDC transfer signed successfully.")
             else:
                 value_wei = self._w3.to_wei(amount_usdc, "ether")
-                nonce = self._w3.eth.get_transaction_count(self._address)
-                tx_base = {
+                nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
+                tx_base = cast(TxParams, {
                     "from": self._address,
                     "to": destinatario,
                     "value": value_wei,
                     "nonce": nonce,
                     "chainId": self._w3.eth.chain_id,
-                }
+                })
                 gas_limit = self._estimate_gas(tx_base)
-                tx = {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
+                tx = cast(TxParams, {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price})
                 signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
                 self.log("Transaction signed successfully.")
 
@@ -204,7 +207,7 @@ class PaymentAgent(BaseAgent):
         if not self._private_key:
             return [{"status": "error", "error": "Private key required."}]
 
-        base_nonce = self._w3.eth.get_transaction_count(self._address)
+        base_nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
         resultados = []
 
         for idx, p in enumerate(payments):
@@ -221,7 +224,7 @@ class PaymentAgent(BaseAgent):
                 "nonce": nonce,
                 "chainId": self._w3.eth.chain_id,
             }
-            gas_limit = self._estimate_gas(tx_base)
+            gas_limit = self._estimate_gas(cast(TxParams, tx_base))
             tx = {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
 
             signed = self._w3.eth.account.sign_transaction(tx, self._private_key)

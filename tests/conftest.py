@@ -16,6 +16,7 @@ os.environ.setdefault("LOG_LEVEL", "WARNING")  # reduce noise during tests
 from unittest.mock import MagicMock, patch  # noqa: E402
 
 import pytest  # noqa: E402
+from anthropic.types import TextBlock  # noqa: E402
 
 
 def pytest_collection_modifyitems(config, items):
@@ -62,9 +63,8 @@ def mock_anthropic():
     with patch("arc_devkit.copilot.agent.anthropic.Anthropic") as MockAnthropic:
         instance = MagicMock()
 
-        # Simulate real response structure: message.content[0].text
-        content = MagicMock()
-        content.text = "Simulated Dev Copilot response for tests."
+        # Simulate real response structure with a proper TextBlock instance
+        content = TextBlock(type="text", text="Simulated Dev Copilot response for tests.")
 
         message = MagicMock()
         message.content = [content]

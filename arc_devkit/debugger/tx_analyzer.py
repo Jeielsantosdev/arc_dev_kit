@@ -1,9 +1,12 @@
 """Arc transaction analyzer — combines RPC data with Claude AI analysis."""
 
 import logging
+from collections.abc import Callable
 from decimal import Decimal
+from typing import Any, cast
 
 from web3 import Web3
+from web3.types import HexStr, TxParams
 
 from arc_devkit.core.connection import get_web3
 
@@ -182,8 +185,8 @@ class TxAnalyzer:
         logger.info("Analyzing transaction: %s", tx_hash)
 
         try:
-            tx = self._w3.eth.get_transaction(tx_hash)
-            receipt = self._w3.eth.get_transaction_receipt(tx_hash)
+            tx = self._w3.eth.get_transaction(HexStr(tx_hash))
+            receipt = self._w3.eth.get_transaction_receipt(HexStr(tx_hash))
         except Exception as exc:
             logger.error("Error fetching transaction %s: %s", tx_hash, exc)
             return {
@@ -264,7 +267,7 @@ class TxAnalyzer:
         tx_hashes: list[str],
         abi: list[dict] | None = None,
         *,
-        on_progress: "((int, int, str) -> None) | None" = None,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> list[dict]:
         """
         Analyze multiple transactions sequentially.
@@ -295,8 +298,8 @@ class TxAnalyzer:
 
     def _decode_revert_reason(
         self,
-        tx: object,
-        receipt: object,
+        tx: Any,
+        receipt: Any,
         abi: list[dict] | None,
     ) -> str | None:
         """Replay the failed call with eth_call to extract the revert reason."""
@@ -310,7 +313,7 @@ class TxAnalyzer:
             block_number = receipt.get("blockNumber")
 
             try:
-                self._w3.eth.call(call_params, block_number)
+                self._w3.eth.call(cast(TxParams, call_params), block_number)
                 # If call succeeds, state changed between tx and replay — no reason
                 return "Transaction reverted (state-dependent; reason unavailable on replay)"
             except Exception as exc:
@@ -327,7 +330,7 @@ class TxAnalyzer:
             logger.debug("_decode_revert_reason failed: %s", exc)
             return None
 
-    def _decode_input(self, tx: object, abi: list[dict]) -> dict | None:
+    def _decode_input(self, tx: Any, abi: list[dict]) -> dict | None:
         """Decode transaction input calldata using the provided ABI."""
         input_data = tx.get("input") or tx.get("data", "0x")
         if not input_data or input_data in ("0x", b""):

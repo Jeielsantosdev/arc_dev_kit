@@ -86,7 +86,7 @@ quote-style = "double"
 indent-style = "space"
 
 # ---------------------------------------------------------------------------
-# Pytest
+# Pytest + coverage
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -94,3 +94,31 @@ testpaths = ["tests"]
 markers = [
     "integration: testes que requerem conexão real com a Arc testnet (pulados no CI padrão)",
 ]
+addopts = "--cov=arc_devkit --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+omit = [
+    # Old grouped CLI — covered indirectly; stub tests prevent 0% noise
+    "arc_devkit/cli/commands/*",
+    "arc_devkit/cli/main.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+# Third-party stubs are incomplete; allow untyped calls from web3/anthropic
+disallow_untyped_defs = false
+check_untyped_defs = true

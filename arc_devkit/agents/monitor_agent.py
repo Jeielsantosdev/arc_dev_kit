@@ -5,8 +5,9 @@ import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+from eth_typing import ChecksumAddress
 from web3 import Web3
 
 from arc_devkit.agents.base_agent import BaseAgent
@@ -106,7 +107,7 @@ class MonitorAgent(BaseAgent):
         """Return current balances for all monitored wallets."""
         resultado = {}
         for addr in self._watched:
-            wei = self._w3.eth.get_balance(addr)
+            wei = self._w3.eth.get_balance(cast(ChecksumAddress, addr))
             resultado[addr] = {
                 "address": addr,
                 "balance_wei": str(wei),
@@ -114,7 +115,7 @@ class MonitorAgent(BaseAgent):
             }
         return resultado
 
-    def execute(
+    def execute(  # type: ignore[override]
         self,
         callback: Callable[[dict], None] | None = None,
         max_iterations: int = 0,
@@ -136,14 +137,14 @@ class MonitorAgent(BaseAgent):
         # Initialize base balances for wallets without saved state
         for addr in self._watched:
             if addr not in self._last_balances:
-                self._last_balances[addr] = self._w3.eth.get_balance(addr)
+                self._last_balances[addr] = self._w3.eth.get_balance(cast(ChecksumAddress, addr))
 
         iterations = 0
         self.log(f"Monitoring {len(self._watched)} wallet(s) every {self._interval}s")
 
         while self._running:
             for addr in self._watched:
-                current_balance = self._w3.eth.get_balance(addr)
+                current_balance = self._w3.eth.get_balance(cast(ChecksumAddress, addr))
                 prev_balance = self._last_balances.get(addr, current_balance)
                 delta = current_balance - prev_balance
 

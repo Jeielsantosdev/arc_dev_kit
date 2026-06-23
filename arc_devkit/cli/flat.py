@@ -22,6 +22,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import typer
 from rich.console import Console
@@ -129,7 +130,7 @@ def status(
     tabela.add_column("field", style="dim")
     tabela.add_column("value", style="bold")
     tabela.add_row("Status", "[green]✓ connected[/green]")
-    tabela.add_row("Network", data["network"])
+    tabela.add_row("Network", str(data["network"]))
     tabela.add_row("Chain ID", str(data["chain_id"]))
     tabela.add_row("Current block", f"#{data['block_number']}")
     tabela.add_row("Gas price", f"{data['gas_price_gwei']} gwei")
@@ -191,8 +192,9 @@ def balance(
 
     checksum = _validate_address(address)
     w3 = get_web3()
-    saldo = Decimal(str(w3.from_wei(w3.eth.get_balance(checksum), "ether")))
-    nonce = w3.eth.get_transaction_count(checksum)
+    from eth_typing import ChecksumAddress as _CA
+    saldo = Decimal(str(w3.from_wei(w3.eth.get_balance(cast(_CA, checksum)), "ether")))
+    nonce = w3.eth.get_transaction_count(cast(_CA, checksum))
 
     data = {"address": checksum, "balance_arc": str(saldo), "nonce": nonce}
 
@@ -1082,7 +1084,7 @@ def init() -> None:
             console.print(f"[red]  ✗ {nome} is required.[/red]")
             raise typer.Exit(1)
 
-        valores[nome] = valor
+        valores[str(nome)] = valor
 
     linhas = [f"{k}={v}" for k, v in valores.items() if v]
     _ENV_FILE.write_text("\n".join(linhas) + "\n")

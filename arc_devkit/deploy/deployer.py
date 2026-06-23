@@ -270,7 +270,7 @@ class ContractDeployer:
 
     def _estimate_gas(self, tx: dict) -> int:
         try:
-            return self._w3.eth.estimate_gas(tx)
+            return int(self._w3.eth.estimate_gas(tx))
         except Exception as exc:
             logger.warning("eth_estimateGas failed (%s), using 3_000_000", exc)
             return 3_000_000
