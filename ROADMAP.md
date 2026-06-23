@@ -30,7 +30,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 ### 2b. PaymentAgent
 
-- [ ] 🔴 **Suporte a USDC ERC-20** — integrar `arc_devkit/usdc/` no `PaymentAgent.execute()` para transferir USDC (não só nativo)
+- [x] 🔴 **Suporte a USDC ERC-20** — integrar `arc_devkit/usdc/` no `PaymentAgent.execute()` para transferir USDC (não só nativo)
 - [x] 🔴 **Aguardar recibo da transação** — `_wait_for_receipt()` com polling e timeout configurável (120s)
 - [x] 🔴 **Estimativa de gás automática** — `_estimate_gas()` via `eth_estimateGas`, fallback `21_000`
 - [x] 🟡 **Callbacks de sucesso e falha** — `on_success(receipt)` e `on_failure(error)` no `execute()`
@@ -43,9 +43,9 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🔴 **Monitorar múltiplas carteiras** — `watched_addresses: list[str]`
 - [x] 🔴 **Alerta por threshold** — `min_change_wei` dispara callback só acima do mínimo
 - [ ] 🟡 **WebSocket / eth_subscribe** — substituir polling por subscription em tempo real (requer RPC com suporte a WS)
-- [ ] 🟡 **Notificações externas** — integrar webhook HTTP, Slack e e-mail ao callback de alerta
+- [x] 🟡 **Notificações externas** — integrar webhook HTTP, Slack e e-mail ao callback de alerta
 - [x] 🟡 **Persistência do último saldo** — `state_file` salva estado em JSON para retomar após reinicialização
-- [ ] 🟡 **Monitorar eventos ERC-20** — escutar logs `Transfer(from, to, value)` do contrato USDC (stub criado, não implementado)
+- [x] 🟡 **Monitorar eventos ERC-20** — escutar logs `Transfer(from, to, value)` do contrato USDC (stub criado, não implementado)
 - [ ] 🟢 **Dashboard ao vivo** — usar `rich.Live` para exibir painel atualizado em tempo real no terminal
 
 ---
@@ -68,11 +68,11 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🔴 **Rate limiting** — `slowapi` com limite de 30 req/min em `/health`
 - [x] 🔴 **Streaming SSE no copilot** — `POST /copilot/ask/stream` com `EventSourceResponse` (formato `data: {"token": "..."}`)
 - [ ] 🟡 **WebSocket para monitor** — `WS /agents/monitor/{address}` que envia eventos de saldo em tempo real
-- [ ] 🟡 **Paginação nos endpoints de histórico** — `limit` e `offset` nas rotas que retornam listas
+- [x] 🟡 **Paginação nos endpoints de histórico** — `limit` e `offset` nas rotas que retornam listas
 - [x] 🟡 **Middleware de logging estruturado** — `X-Request-ID` por request, método, rota, status e latência em JSON
 - [x] 🟡 **Endpoint de saúde detalhado** — `GET /health` com `rpc_connected`, `block_number`, `chain_id`, `latency_ms`
-- [ ] 🟢 **Docker + docker-compose** — `Dockerfile` e `compose.yml` para subir a API com um comando
-- [ ] 🟢 **OpenAPI customizado** — título, descrição, logo e exemplos de request/response na documentação Swagger
+- [x] 🟢 **Docker + docker-compose** — `Dockerfile` e `compose.yml` para subir a API com um comando
+- [x] 🟢 **OpenAPI customizado** — título, descrição, logo e exemplos de request/response na documentação Swagger
 
 ---
 
@@ -124,9 +124,9 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 ## 9. Documentação
 
-- [ ] 🔴 **Guia de migração `rpc.arc.io` → `arc-testnet.drpc.org`** — nota de release explicando a mudança de RPC e chain ID
-- [ ] 🟡 **Cookbook de receitas** — página `docs/cookbook.md` com exemplos prontos: monitor + alerta, payment bot, debug em loop
-- [ ] 🟡 **Referência da API REST** — atualizar `docs/` com todos os endpoints, request/response bodies e exemplos `curl`
+- [x] 🔴 **Guia de migração `rpc.arc.io` → `arc-testnet.drpc.org`** — nota de release explicando a mudança de RPC e chain ID
+- [x] 🟡 **Cookbook de receitas** — página `docs/cookbook.md` com exemplos prontos: monitor + alerta, payment bot, debug em loop
+- [x] 🟡 **Referência da API REST** — atualizar `docs/` com todos os endpoints, request/response bodies e exemplos `curl`
 - [ ] 🟡 **Tutorial de primeiros passos em vídeo** — gravar screencast de 5 min mostrando install → status → copilot ask → debug tx
 - [ ] 🟢 **Página no MkDocs para o Playground** — documentar os scripts do `/playground` dentro do site oficial
 - [ ] 🟢 **Changelog automatizado** — usar `git-cliff` ou `towncrier` para gerar CHANGELOG.md a partir de conventional commits
@@ -140,8 +140,8 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🟡 **Pre-commit hooks** — configurar `.pre-commit-config.yaml` com ruff, mypy e validação de conventional commits
 - [x] 🟡 **Release automático no GitHub** — usar `gh release create` no workflow de tag para publicar notas de release
 - [x] 🟡 **Dependabot** — `dependabot.yml` para atualizar deps Python e GitHub Actions automaticamente
-- [ ] 🟢 **Docker oficial** — imagem `ghcr.io/jeielsantosdev/arc-devkit` publicada no GitHub Container Registry
-- [ ] 🟢 **Badges no README** — PyPI version, CI status, coverage e license shields no topo do README
+- [x] 🟢 **Docker oficial** — imagem `ghcr.io/jeielsantosdev/arc-devkit` publicada no GitHub Container Registry
+- [x] 🟢 **Badges no README** — PyPI version, CI status, coverage e license shields no topo do README
 
 ---
 
@@ -150,16 +150,16 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 | Seção | Total | Feito | Pendente |
 |---|---|---|---|
 | 1. DevCopilot | 8 | 6 | 2 |
-| 2. Agents | 12 | 8 | 4 |
+| 2. Agents | 12 | 11 | 1 |
 | 3. Tx Debugger | 7 | 5 | 2 |
-| 4. API REST | 9 | 5 | 4 |
+| 4. API REST | 9 | 8 | 1 |
 | 5. CLI | 8 | 7 | 1 |
 | 6. Analytics | 6 | 6 | 0 |
 | 7. Módulos Novos | 5 | 4 | 1 |
 | 8. Testes | 7 | 6 | 1 |
-| 9. Documentação | 6 | 0 | 6 |
-| 10. DevOps | 7 | 5 | 2 |
-| **Total** | **75** | **51** | **24** |
+| 9. Documentação | 6 | 4 | 2 |
+| 10. DevOps | 7 | 7 | 0 |
+| **Total** | **75** | **64** | **11** |
 
 ---
 

@@ -19,13 +19,63 @@ logger = logging.getLogger(__name__)
 # Rate limiter — identifies requests by client IP
 limiter = Limiter(key_func=get_remote_address)
 
+_DESCRIPTION = """\
+**Arc DevKit** — developer toolkit for the [Arc blockchain](https://arc.io) by Circle.
+
+Arc is an EVM-compatible Layer 1 that uses **USDC as the gas token** and achieves
+sub-second finality with the Malachite consensus engine.
+
+## Modules
+
+| Module | Prefix | Description |
+|---|---|---|
+| 🤖 Dev Copilot | `/copilot` | Claude-powered AI assistant for Arc development |
+| 💸 Agents | `/agents` | Wallet management, payment & monitor agents |
+| 🔍 Tx Debugger | `/debug` | Transaction analysis, revert decoding, gas estimation |
+
+## Authentication
+
+Set the `API_KEY` environment variable to enable key-based authentication.
+Pass the key via the `X-API-Key` header on every request.
+If `API_KEY` is unset, authentication is **disabled** (suitable for local dev).
+
+## Rate Limiting
+
+`GET /health` is limited to **30 requests/minute** per IP.
+"""
+
+_TAGS_METADATA = [
+    {
+        "name": "Dev Copilot",
+        "description": "AI assistant powered by Claude. Specializes in Arc/EVM development, Solidity, web3.py, and USDC integration.",
+    },
+    {
+        "name": "Agents",
+        "description": "Wallet creation, balance queries, payment execution (native ARC or USDC ERC-20), and block info.",
+    },
+    {
+        "name": "Tx Debugger",
+        "description": "Analyze transactions, decode reverts and ABI input data, estimate gas costs, and paginate analysis history.",
+    },
+    {
+        "name": "Infra",
+        "description": "Health check and connectivity status.",
+    },
+]
+
 app = FastAPI(
     title="Arc DevKit API",
-    description=(
-        "REST API for Arc blockchain developer tools. "
-        "Exposes the Dev Copilot, Agent Kit, and Tx Debugger modules over HTTP."
-    ),
+    description=_DESCRIPTION,
     version=__version__,
+    contact={
+        "name": "Jeielsantosdev",
+        "url": "https://github.com/Jeielsantosdev/arc-devkit",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=_TAGS_METADATA,
     docs_url="/docs",
     redoc_url="/redoc",
 )
