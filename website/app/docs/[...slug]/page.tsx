@@ -7,6 +7,8 @@ import { slugToHref } from '@/lib/utils'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
 
 interface Props {
   params: Promise<{ slug: string[] }>
@@ -64,7 +66,10 @@ export default async function DocPage({ params }: Props) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           components={{ ...mdxComponents, Callout } as any}
           options={{
-            mdxOptions: {},
+            mdxOptions: {
+              remarkPlugins: [remarkGfm],
+              rehypePlugins: [rehypeHighlight],
+            },
           }}
         />
       </div>

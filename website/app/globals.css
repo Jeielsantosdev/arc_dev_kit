@@ -7,134 +7,156 @@
 @layer base {
   :root {
     --sidebar-width: 280px;
+    /* Tokyo Night palette */
+    --tn-bg:       #1a1b26;
+    --tn-bg-dark:  #16161e;
+    --tn-border:   #292e42;
+    --tn-fg:       #c0caf5;
+    --tn-comment:  #565f89;
+    --tn-keyword:  #bb9af7;
+    --tn-string:   #9ece6a;
+    --tn-func:     #7aa2f7;
+    --tn-number:   #ff9e64;
+    --tn-type:     #2ac3de;
+    --tn-var:      #e0af68;
+    --tn-operator: #89ddff;
+    --tn-tag:      #f7768e;
+    --tn-builtin:  #2ac3de;
+    --tn-param:    #cfc9c2;
   }
 
-  html {
-    scroll-behavior: smooth;
-  }
+  html { scroll-behavior: smooth; }
 
-  body {
-    @apply bg-zinc-950 text-zinc-200 font-sans antialiased;
-  }
+  body { @apply bg-zinc-950 text-zinc-200 font-sans antialiased; }
 
-  ::selection {
-    @apply bg-arc-500/40 text-white;
-  }
+  ::selection { @apply bg-arc-500/40 text-white; }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-zinc-900;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-zinc-700 rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-zinc-500;
-  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-zinc-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-zinc-700 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-zinc-500; }
 }
 
 @layer components {
-  .arc-gradient {
-    @apply bg-gradient-to-r from-arc-400 to-usdc;
-  }
+  .arc-gradient { @apply bg-gradient-to-r from-arc-400 to-usdc; }
+  .arc-gradient-text { @apply bg-gradient-to-r from-arc-300 to-usdc-light bg-clip-text text-transparent; }
 
-  .arc-gradient-text {
-    @apply bg-gradient-to-r from-arc-300 to-usdc-light bg-clip-text text-transparent;
-  }
-
-  .glass {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10;
-  }
+  .glass { @apply bg-white/5 backdrop-blur-sm border border-white/10; }
 
   .sidebar-link {
     @apply flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-zinc-400
            hover:text-white hover:bg-white/5 transition-colors duration-150;
   }
-
   .sidebar-link.active {
     @apply text-white bg-arc-500/20 border-l-2 border-arc-400;
   }
-
   .sidebar-section {
     @apply text-xs font-semibold uppercase tracking-wider text-zinc-500 px-3 py-2 mt-4;
   }
 }
 
-/* Syntax highlighting — dark theme */
-pre code.hljs {
-  @apply block overflow-x-auto p-4 text-sm font-mono leading-relaxed;
-  background: transparent;
+/* ─── Tokyo Night — code blocks ─────────────────────────────────────────── */
+
+pre {
+  background-color: var(--tn-bg) !important;
+  border: 1px solid var(--tn-border) !important;
+  border-radius: 0.75rem;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,.35);
 }
 
-.hljs {
-  color: #e2e8f0;
+pre code.hljs,
+pre code {
+  display: block;
+  padding: 1.1rem 1.25rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  background: transparent !important;
+  color: var(--tn-fg);
 }
 
+/* inline code */
+:not(pre) > code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875em;
+  color: #bb9af7;
+  background: rgba(187,154,247,.12);
+  border: 1px solid rgba(187,154,247,.2);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.4em;
+}
+
+/* hljs token colours — Tokyo Night */
+.hljs                        { color: var(--tn-fg); background: transparent; }
 .hljs-keyword,
 .hljs-selector-tag,
-.hljs-literal,
-.hljs-type {
-  color: #a78bfa;
-}
-
-.hljs-string,
-.hljs-attr,
-.hljs-number {
-  color: #86efac;
-}
-
-.hljs-title,
-.hljs-name,
-.hljs-function {
-  color: #93c5fd;
-}
-
-.hljs-comment {
-  color: #6b7280;
-  font-style: italic;
-}
-
-.hljs-variable,
-.hljs-template-variable {
-  color: #fbbf24;
-}
-
+.hljs-tag .hljs-name         { color: var(--tn-keyword); font-style: italic; }
 .hljs-built_in,
-.hljs-builtin-name {
-  color: #67e8f9;
-}
+.hljs-builtin-name           { color: var(--tn-builtin); }
+.hljs-type,
+.hljs-class .hljs-title      { color: var(--tn-type); }
+.hljs-string,
+.hljs-template-string        { color: var(--tn-string); }
+.hljs-number,
+.hljs-literal                { color: var(--tn-number); }
+.hljs-title,
+.hljs-function .hljs-title   { color: var(--tn-func); }
+.hljs-attr,
+.hljs-attribute              { color: var(--tn-func); }
+.hljs-variable,
+.hljs-template-variable      { color: var(--tn-var); }
+.hljs-operator,
+.hljs-punctuation            { color: var(--tn-operator); }
+.hljs-comment,
+.hljs-quote                  { color: var(--tn-comment); font-style: italic; }
+.hljs-tag                    { color: var(--tn-tag); }
+.hljs-meta,
+.hljs-meta .hljs-keyword     { color: var(--tn-comment); }
+.hljs-deletion               { color: var(--tn-tag); background: rgba(247,118,142,.12); }
+.hljs-addition               { color: var(--tn-string); background: rgba(158,206,106,.12); }
+.hljs-emphasis               { font-style: italic; }
+.hljs-strong                 { font-weight: 700; }
+.hljs-section,
+.hljs-name                   { color: var(--tn-func); }
+.hljs-selector-id,
+.hljs-selector-class         { color: var(--tn-var); }
+.hljs-params                 { color: var(--tn-param); }
+.hljs-link                   { color: var(--tn-func); text-decoration: underline; }
 
-.hljs-class .hljs-title {
-  color: #f9a8d4;
-}
+/* ─── Prose / MDX tables ─────────────────────────────────────────────────── */
 
-.hljs-meta {
-  color: #94a3b8;
-}
-
-/* MDX content tables */
 .prose table {
-  @apply w-full border-collapse text-sm;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin: 1.25rem 0;
 }
-
 .prose thead {
-  @apply border-b border-zinc-700;
+  background: rgba(187,154,247,.08);
+  border-bottom: 1px solid var(--tn-border);
 }
-
 .prose thead th {
-  @apply px-4 py-2 text-left font-semibold text-white;
+  padding: 0.65rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #c0caf5;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-
 .prose tbody td {
-  @apply px-4 py-2 border-b border-zinc-800/50;
+  padding: 0.6rem 1rem;
+  color: #a9b1d6;
+  border-bottom: 1px solid rgba(41,46,66,.7);
 }
+.prose tbody tr:last-child td { border-bottom: none; }
+.prose tbody tr:hover td { background: rgba(255,255,255,.03); }
 
-.prose tbody tr:last-child td {
-  @apply border-0;
+/* Wrap table in a styled container */
+.prose table {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--tn-border);
 }
