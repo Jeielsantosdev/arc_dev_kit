@@ -13,6 +13,7 @@ from slowapi.util import get_remote_address
 
 from arc_devkit import __version__
 from arc_devkit.api.routes import agents, copilot, debugger
+from arc_devkit.api.routes.agents import ws_router as agents_ws_router
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,13 @@ app.include_router(
     prefix="/debug",
     tags=["Tx Debugger"],
     dependencies=[Security(verify_api_key)],
+)
+
+
+app.include_router(
+    agents_ws_router,
+    prefix="/agents",
+    tags=["Agents"],
 )
 
 

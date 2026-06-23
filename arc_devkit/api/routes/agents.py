@@ -1,9 +1,16 @@
 """API routes for Arc wallet and agent operations."""
 
-from fastapi import APIRouter, HTTPException
+import asyncio
+
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+# WebSocket routes are on a separate router because FastAPI's HTTPSecurity
+# schemes (APIKeyHeader) cannot resolve against WebSocket scope.
+# Auth for WS is handled inside the handler via query param or per-connection token.
+ws_router = APIRouter()
 
 
 class WalletResponse(BaseModel):
@@ -131,3 +138,60 @@ async def get_block() -> BlockResponse:
         return BlockResponse(block_number=w3.eth.block_number, chain_id=w3.eth.chain_id)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@ws_router.websocket("/monitor/{address}")
+async def monitor_ws(
+    websocket: WebSocket,
+    address: str,
+    interval: int = Query(default=15, ge=1, le=300),
+    min_change_wei: int = Query(default=0, ge=0),
+) -> None:
+    """
+    WebSocket endpoint that streams balance-change events for an Arc address.
+
+    Connect with: ws://host/agents/monitor/{address}?interval=15&min_change_wei=0
+
+    Each message is a JSON object with keys:
+    - event_type: "native" or "erc20_transfer"
+    - address, balance_wei, change_wei, type ("credit"/"debit")
+    - (for erc20) token, from, to, value_atomic, tx_hash, block
+
+    The stream ends when the client disconnects.
+    """
+    from arc_devkit.agents.async_monitor import AsyncMonitorAgent
+
+    await websocket.accept()
+
+    queue: asyncio.Queue[dict] = asyncio.Queue()
+
+    async def _enqueue(event: dict) -> None:
+        await queue.put(event)
+
+    monitor = AsyncMonitorAgent(
+        watched_address=address,
+        interval_seconds=interval,
+        min_change_wei=min_change_wei,
+    )
+    task = asyncio.create_task(monitor.execute(callback=_enqueue))
+
+    try:
+        while True:
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                await websocket.send_json(event)
+            except asyncio.TimeoutError:
+                # Send a heartbeat ping to detect dead connections
+                try:
+                    await websocket.send_json({"event_type": "ping"})
+                except Exception:
+                    break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        monitor.stop()
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass

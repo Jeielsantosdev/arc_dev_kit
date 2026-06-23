@@ -15,8 +15,8 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🟡 **Contagem de tokens e custo estimado** — `count_tokens()` + log por chamada
 - [x] 🟡 **System prompt customizável** — `extra_context` no construtor injetado no system prompt
 - [x] 🟡 **Cache de respostas** — hash md5 do prompt; TTL de 5 minutos
-- [ ] 🟢 **Suporte a imagens no prompt** — aceitar caminho de arquivo como contexto (ex: screenshot de erro, diagrama de contrato)
-- [ ] 🟢 **Modo offline** — retornar resposta mockada quando `ANTHROPIC_API_KEY` não está configurada, útil para testes locais
+- [x] 🟢 **Suporte a imagens no prompt** — aceitar caminho de arquivo como contexto (ex: screenshot de erro, diagrama de contrato)
+- [x] 🟢 **Modo offline** — retornar resposta mockada quando `ANTHROPIC_API_KEY` não está configurada, útil para testes locais
 
 ---
 
@@ -26,7 +26,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 - [x] 🔴 **Retry com backoff exponencial** — `tenacity` com retry em `ConnectionError`, `TimeoutError`, `OSError` (3 tentativas)
 - [x] 🟡 **Suporte a múltiplas RPCs** — `ARC_RPC_URL` separado por vírgula com fallback automático
-- [ ] 🟡 **Modo async** — versão `AsyncBaseAgent` usando `web3.AsyncWeb3` para suportar uso em FastAPI e aplicações async
+- [x] 🟡 **Modo async** — `AsyncBaseAgent` + `AsyncMonitorAgent` via `asyncio.to_thread`; integra com FastAPI WebSocket
 
 ### 2b. PaymentAgent
 
@@ -67,7 +67,7 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 - [x] 🔴 **Autenticação via API key** — header `X-API-Key` via env `API_KEY` (desabilitada se não configurada)
 - [x] 🔴 **Rate limiting** — `slowapi` com limite de 30 req/min em `/health`
 - [x] 🔴 **Streaming SSE no copilot** — `POST /copilot/ask/stream` com `EventSourceResponse` (formato `data: {"token": "..."}`)
-- [ ] 🟡 **WebSocket para monitor** — `WS /agents/monitor/{address}` que envia eventos de saldo em tempo real
+- [x] 🟡 **WebSocket para monitor** — `WS /agents/monitor/{address}` que envia eventos de saldo em tempo real
 - [x] 🟡 **Paginação nos endpoints de histórico** — `limit` e `offset` nas rotas que retornam listas
 - [x] 🟡 **Middleware de logging estruturado** — `X-Request-ID` por request, método, rota, status e latência em JSON
 - [x] 🟡 **Endpoint de saúde detalhado** — `GET /health` com `rpc_connected`, `block_number`, `chain_id`, `latency_ms`
@@ -149,17 +149,17 @@ Legenda: 🔴 Alta prioridade · 🟡 Média · 🟢 Nice to have · 🔬 Pesqui
 
 | Seção | Total | Feito | Pendente |
 |---|---|---|---|
-| 1. DevCopilot | 8 | 6 | 2 |
-| 2. Agents | 12 | 11 | 1 |
+| 1. DevCopilot | 8 | 8 | 0 |
+| 2. Agents | 17 | 14 | 3 |
 | 3. Tx Debugger | 7 | 5 | 2 |
-| 4. API REST | 9 | 8 | 1 |
+| 4. API REST | 9 | 9 | 0 |
 | 5. CLI | 8 | 7 | 1 |
 | 6. Analytics | 6 | 6 | 0 |
 | 7. Módulos Novos | 5 | 4 | 1 |
 | 8. Testes | 7 | 6 | 1 |
 | 9. Documentação | 6 | 4 | 2 |
 | 10. DevOps | 7 | 7 | 0 |
-| **Total** | **75** | **64** | **11** |
+| **Total** | **80** | **70** | **10** |
 
 ---
 

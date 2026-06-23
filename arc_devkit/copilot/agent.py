@@ -1,9 +1,12 @@
 """Dev Copilot — AI assistant specialized in Arc blockchain development."""
 
+import base64
 import hashlib
 import logging
+import mimetypes
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import cast
 
 import anthropic
@@ -35,13 +38,21 @@ You are an expert assistant specialized in Arc blockchain development.
 
 _CACHE_TTL_SECONDS = 300  # 5 minutes
 
+_OFFLINE_RESPONSE = (
+    "[Offline mode] Arc DevKit is running without an Anthropic API key. "
+    "Set ANTHROPIC_API_KEY in your .env to enable AI responses."
+)
+
+_SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
 
 class DevCopilot:
     """
     AI assistant for Arc blockchain development.
 
     Supports in-memory conversation history, token-by-token streaming,
-    response caching for identical prompts, and token counting.
+    response caching for identical prompts, token counting, optional offline
+    mode (no API key required), and image attachments in prompts.
     """
 
     MAX_TOKENS = 2000
@@ -50,13 +61,17 @@ class DevCopilot:
         self,
         extra_context: str | None = None,
         model: str | None = None,
+        offline: bool = False,
     ) -> None:
         """
         Args:
             extra_context: Additional context injected into the system prompt
                            (e.g. contract ABI, project context).
             model: Model override (default: ANTHROPIC_MODEL from .env).
+            offline: When True, return a mock response without calling the API.
+                     Useful for local tests and CI environments without an API key.
         """
+        self._offline = offline
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self.model = model or settings.anthropic_model
         self._history: list[dict] = []
@@ -67,26 +82,58 @@ class DevCopilot:
             system += f"\n\n## Additional context\n{extra_context}"
         self._system = system
 
-        logger.debug("DevCopilot initialized with model %s", self.model)
+        logger.debug("DevCopilot initialized with model %s (offline=%s)", self.model, offline)
 
     @property
     def MODEL(self) -> str:
         """Backward-compat property; returns self.model."""
         return self.model
 
-    def ask(self, prompt: str) -> str:
+    @staticmethod
+    def _build_image_block(image_path: str) -> dict:
+        """Read an image file and return an Anthropic image content block."""
+        path = Path(image_path)
+        mime, _ = mimetypes.guess_type(str(path))
+        if mime not in _SUPPORTED_IMAGE_TYPES:
+            raise ValueError(
+                f"Unsupported image type '{mime}'. Supported: {_SUPPORTED_IMAGE_TYPES}"
+            )
+        data = base64.standard_b64encode(path.read_bytes()).decode()
+        return {
+            "type": "image",
+            "source": {"type": "base64", "media_type": mime, "data": data},
+        }
+
+    def ask(self, prompt: str, image_path: str | None = None) -> str:
         """
         Send a question while maintaining conversation history.
 
         Returns a cached response if the same prompt was asked recently.
+
+        Args:
+            prompt: The question or instruction to send.
+            image_path: Optional path to an image file (PNG/JPEG/GIF/WebP) to
+                        include alongside the prompt (e.g. a screenshot of an error).
         """
+        if self._offline:
+            logger.debug("Offline mode — returning mock response.")
+            return _OFFLINE_RESPONSE
+
         cache_key = hashlib.md5((self.model + self._system + prompt).encode()).hexdigest()
         cached, ts = self._cache.get(cache_key, ("", 0.0))
         if cached and (time.time() - ts) < _CACHE_TTL_SECONDS:
             logger.debug("Cache hit for prompt: %.40s...", prompt)
             return cached
 
-        self._history.append({"role": "user", "content": prompt})
+        if image_path:
+            content: list[dict] | str = [
+                self._build_image_block(image_path),
+                {"type": "text", "text": prompt},
+            ]
+        else:
+            content = prompt
+
+        self._history.append({"role": "user", "content": content})
         logger.info("Dev Copilot queried — prompt: %.80s...", prompt)
 
         message = self._client.messages.create(
@@ -110,15 +157,31 @@ class DevCopilot:
         self._cache[cache_key] = (response_text, time.time())
         return response_text
 
-    def ask_stream(self, prompt: str) -> Iterator[str]:
+    def ask_stream(self, prompt: str, image_path: str | None = None) -> Iterator[str]:
         """
         Send a question and return an iterator of text chunks (streaming).
+
+        Args:
+            prompt: The question or instruction to send.
+            image_path: Optional image file path to include alongside the prompt.
 
         Usage:
             for chunk in copilot.ask_stream("question"):
                 print(chunk, end="", flush=True)
         """
-        self._history.append({"role": "user", "content": prompt})
+        if self._offline:
+            yield _OFFLINE_RESPONSE
+            return
+
+        if image_path:
+            content: list[dict] | str = [
+                self._build_image_block(image_path),
+                {"type": "text", "text": prompt},
+            ]
+        else:
+            content = prompt
+
+        self._history.append({"role": "user", "content": content})
         logger.info("Dev Copilot (stream) queried — prompt: %.80s...", prompt)
 
         chunks: list[str] = []
@@ -142,6 +205,8 @@ class DevCopilot:
 
     def count_tokens(self, prompt: str) -> int:
         """Estimate token count for a prompt (no API call sent)."""
+        if self._offline:
+            return 0
         response = self._client.messages.count_tokens(
             model=self.model,
             system=self._system,
