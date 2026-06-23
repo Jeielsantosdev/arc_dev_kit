@@ -1,352 +1,310 @@
 # Agent Starter Kit
 
-O Agent Starter Kit fornece templates prontos para construir **agentes econômicos autônomos** na Arc blockchain. Esses agentes monitoram eventos on-chain, tomam decisões e executam transações sem intervenção humana — o modelo central do Circle Agent Stack.
+The Agent Starter Kit provides the building blocks for autonomous economic agents on Arc. `BaseAgent` handles RPC connectivity with multi-endpoint fallback and tenacity retry. `PaymentAgent` and `MonitorAgent` are the two production-ready implementations shipped out of the box. `USDCToken` wraps the USDC ERC-20 contract, and the `contracts` utilities cover arbitrary contract interactions.
 
 ---
 
-## O que é um Agente Econômico?
-
-Um agente econômico autônomo é um programa que:
-
-1. **Monitora** a blockchain em tempo real (saldos, blocos, eventos)
-2. **Decide** com base em regras configuradas
-3. **Age** executando transações na blockchain (pagamentos, transferências)
-4. **Registra** todas as ações para auditoria
-
-Na Arc, agentes econômicos são cidadãos de primeira classe: a blockchain foi projetada para que programas possam ter carteiras, pagar gás em USDC e participar da economia on-chain.
-
----
-
-## Arquitetura atual (v0.1)
+## Architecture
 
 ```
-arc_devkit/agents/
-├── base_agent.py       # BaseAgent — ABC com get_balance() e execute()
-├── payment_agent.py    # PaymentAgent — assinar e enviar pagamentos
-└── monitor_agent.py    # MonitorAgent — monitorar mudanças de saldo
+arc_devkit/
+├── agents/
+│   ├── base_agent.py      # ABC — RPC connection, retry, private key resolution
+│   ├── payment_agent.py   # Signs, sends, and tracks USDC payments
+│   └── monitor_agent.py   # Polls one or more wallets for balance changes
+├── usdc/
+│   └── token.py           # USDCToken — ERC-20 wrapper with 6-decimal Decimal
+└── contracts/
+    └── loader.py          # load_abi, call_view, send_tx, decode_events
 ```
 
 ---
 
-## BaseAgent
+## `BaseAgent`
 
-Todos os agentes herdam de `BaseAgent`. Ele conecta ao RPC Arc e resolve a chave privada.
+All agents inherit from `BaseAgent`. It resolves the private key and RPC connection at construction time, so subclasses never touch those concerns.
+
+**Private key resolution order:** constructor argument → `ARC_PRIVATE_KEY` env var → `None` (read-only mode). Read-only mode lets you query balances without exposing a key.
+
+**RPC connection:** single-URL uses `get_web3()` (mockable in tests); multiple comma-separated URLs in `ARC_RPC_URL` try each in order until one responds with `is_connected() == True`.
+
+**Retry:** RPC calls wrapped in `_call_rpc()` use tenacity with exponential backoff: 3 attempts, 1–10 second wait, re-raise on exhaustion.
 
 ```python
-from arc_devkit.agents.base_agent import BaseAgent
-from abc import abstractmethod
+class MyAgent(BaseAgent):
+    def get_balance(self):
+        return self._call_rpc(lambda: self._w3.eth.get_balance(self.address))
 
-class MeuAgente(BaseAgent):
-    @abstractmethod
-    def get_balance(self) -> dict:
-        """Retorna saldo da carteira."""
-        ...
-
-    @abstractmethod
     def execute(self, **kwargs) -> dict:
-        """Executa a ação principal do agente."""
         ...
 ```
 
-### Modos de operação
+### Multi-RPC Failover
 
-```python
-# Modo somente leitura (sem chave privada)
-agente = MeuAgente()
-
-# Modo com chave privada passada diretamente
-agente = MeuAgente(private_key="0xSuaChavePrivada...")
-
-# Modo com chave privada via ambiente (ARC_PRIVATE_KEY)
-# Se ARC_PRIVATE_KEY estiver no .env, é usada automaticamente
-agente = MeuAgente()
+```dotenv
+# Primary + two fallbacks — tried left to right
+ARC_RPC_URL=https://arc-testnet.drpc.org,https://rpc-backup1.example.com,https://rpc-backup2.example.com
 ```
+
+The constructor walks the list and picks the first healthy endpoint. If all fail, `ConnectionError` is raised before your agent does any work.
 
 ---
 
-## PaymentAgent — Agente de Pagamento
+## `PaymentAgent`
 
-Monta, assina e (opcionalmente) envia transações de transferência na Arc.
-
-### Uso básico
+Builds and signs USDC-gas transactions. Gas is estimated via `eth_estimateGas` (falls back to 21,000 if estimation fails). By default, `execute()` also polls `eth_getTransactionReceipt` until the transaction confirms.
 
 ```python
 import os
 from arc_devkit.agents.payment_agent import PaymentAgent
 
-agente = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
-
-# Verificar saldo antes de pagar
-saldo = agente.get_balance()
-print(f"Saldo: {saldo['balance_usdc']} USDC")
-
-# Modo seguro: assinar sem enviar (padrão)
-resultado = agente.execute(
-    to="0xDestinatarioAqui",
-    amount_usdc=10.0,
-)
-print(resultado)
-# {'status': 'assinada', 'from': '0x...', 'to': '0x...', 'amount_usdc': 10.0,
-#  'raw_transaction': '0x...', 'nota': 'Transação assinada. Passe enviar=True para enviar.'}
-
-# Enviar à rede Arc
-resultado = agente.execute(
-    to="0xDestinatarioAqui",
-    amount_usdc=10.0,
-    enviar=True,
-)
-print(resultado)
-# {'status': 'enviada', 'from': '0x...', 'to': '0x...', 'amount_usdc': 10.0, 'tx_hash': '0x...'}
+agent = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
 ```
 
-### Via CLI
-
-```bash
-# Assinar sem enviar (modo seguro padrão)
-arcdevkit agent pay 0xDestino... 10.0
-
-# Assinar e enviar à rede
-arcdevkit agent pay 0xDestino... 10.0 --send
-
-# Passar chave privada diretamente (sem precisar de .env)
-arcdevkit agent pay 0xDestino... 10.0 --send --key 0xSuaChavePrivada
-```
-
-### Exemplo: Pagamento recorrente simples
+### Single Payment
 
 ```python
-"""
-Agente que executa pagamentos em intervalos configurados.
-"""
+# Sign only — inspect before broadcasting
+result = agent.execute(to="0xDest...", amount_usdc=5.0)
+assert result["status"] == "signed"
+print(result["raw_transaction"])
 
-import os
-import time
-from arc_devkit.agents.payment_agent import PaymentAgent
-
-def executar_pagamento_recorrente(
-    destinatario: str,
-    valor_usdc: float,
-    intervalo_segundos: int = 86_400,  # 1 dia
-    max_pagamentos: int = 0,           # 0 = sem limite
-):
-    agente = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
-    pagamentos = 0
-
-    while True:
-        saldo = agente.get_balance()
-        print(f"Saldo atual: {saldo['balance_usdc']} USDC")
-
-        resultado = agente.execute(
-            to=destinatario,
-            amount_usdc=valor_usdc,
-            enviar=True,
-        )
-
-        if resultado["status"] == "enviada":
-            pagamentos += 1
-            print(f"Pagamento #{pagamentos} enviado: {resultado['tx_hash']}")
-        else:
-            print(f"Erro: {resultado.get('error')}")
-
-        if max_pagamentos and pagamentos >= max_pagamentos:
-            print("Limite de pagamentos atingido. Encerrando.")
-            break
-
-        print(f"Próximo pagamento em {intervalo_segundos}s...")
-        time.sleep(intervalo_segundos)
-
-
-# Executar: pagar 5 USDC por dia, 7 vezes (semana)
-executar_pagamento_recorrente(
-    destinatario="0xRecebedorAqui",
-    valor_usdc=5.0,
-    intervalo_segundos=86_400,
-    max_pagamentos=7,
+# Sign, broadcast, and wait for confirmation
+result = agent.execute(
+    to="0xDest...",
+    amount_usdc=5.0,
+    enviar=True,                                              # broadcast
+    wait_receipt=True,                                        # default
+    on_success=lambda r: print("done", r["blockNumber"]),
+    on_failure=lambda e: print("failed", e),
 )
+assert result["status"] == "confirmed"
+print(result["tx_hash"])
+```
+
+### Batch Payments
+
+`execute_batch()` manages nonces automatically so payments don't conflict, even if the mempool is busy.
+
+```python
+payments = [
+    {"to": "0xAddr1...", "amount_usdc": 1.00, "enviar": True},
+    {"to": "0xAddr2...", "amount_usdc": 2.50, "enviar": True},
+    {"to": "0xAddr3...", "amount_usdc": 0.75, "enviar": True},
+]
+results = agent.execute_batch(payments)
+for r in results:
+    print(r["status"], r.get("tx_hash", r.get("error")))
+```
+
+### Status Values
+
+| `status` | Meaning |
+|---|---|
+| `"signed"` | Transaction built and signed; not yet broadcast |
+| `"sent"` | Broadcast with `wait_receipt=False` |
+| `"confirmed"` | Receipt received; transaction mined |
+| `"failed"` | Transaction reverted on-chain |
+| `"error"` | Exception before or during broadcast |
+
+Via CLI:
+
+```bash
+# Sign only (safe default)
+arcdevkit agent pay 0xDest... 10.0
+
+# Sign and broadcast
+arcdevkit agent pay 0xDest... 10.0 --send
+
+# Pass private key directly
+arcdevkit agent pay 0xDest... 10.0 --send --key 0xYourPrivateKey...
 ```
 
 ---
 
-## MonitorAgent — Agente de Monitoramento
+## `MonitorAgent`
 
-Monitora uma carteira Arc e chama callbacks ao detectar mudanças de saldo.
-
-### Uso básico
+Polls one or more wallets at a configurable interval. Fires a callback only when the absolute balance change exceeds `min_change_wei`. Persists last-seen balances to a JSON file so it resumes from known state after a restart.
 
 ```python
 from arc_devkit.agents.monitor_agent import MonitorAgent
 
-# Modo somente leitura — não precisa de chave privada
-agente = MonitorAgent(
-    watched_address="0xCarteiraAMonitorar",
-    interval_seconds=15,  # verificar a cada 15 segundos
+agent = MonitorAgent(
+    watched_addresses=["0xWallet1...", "0xWallet2..."],
+    interval_seconds=10,
+    min_change_wei=10**15,                          # 0.001 ARC minimum change
+    state_file="~/.arc_devkit/monitor_state.json",  # persist across restarts
 )
 
-# Consultar saldo atual
-saldo = agente.get_balance()
-print(f"Endereço: {saldo['address']}")
-print(f"Saldo:    {saldo['balance_eth']} USDC")
+def on_change(event: dict):
+    addr = event["address"]
+    direction = event["tipo"]     # "credit" or "debit"
+    diff = event["diferenca_wei"]
+    print(f"[{addr[:8]}] {direction}: {diff} wei")
 
-# Monitorar com callback
-def ao_detectar_mudanca(evento: dict):
-    print(f"Mudança detectada!")
-    print(f"  Tipo:      {evento['tipo']}")          # 'credito' ou 'debito'
-    print(f"  Diferença: {evento['diferenca_wei']} wei")
-    print(f"  Saldo ant: {evento['saldo_anterior_wei']} wei")
-    print(f"  Saldo atu: {evento['saldo_atual_wei']} wei")
-
-resultado = agente.execute(
-    callback=ao_detectar_mudanca,
-    max_iterations=100,  # 0 = loop infinito
-)
-print(f"Finalizado após {resultado['iteracoes']} iterações")
+result = agent.execute(callback=on_change)
+print(result["status"])      # "done"
+print(result["iteracoes"])   # iterations completed
 ```
 
-### Via CLI
-
-```bash
-# Monitorar carteira — exibe eventos no terminal
-arcdevkit agent monitor 0xCarteiraAqui
-
-# Polling a cada 5 segundos, máximo de 50 verificações
-arcdevkit agent monitor 0xCarteiraAqui --interval 5 --max 50
-
-# Pressione Ctrl+C para encerrar sem erros
-```
-
-### Parar o monitoramento
+### Single-Wallet Shorthand
 
 ```python
-import threading
-from arc_devkit.agents.monitor_agent import MonitorAgent
-
-agente = MonitorAgent(watched_address="0xCarteira...")
-
-# Executar em thread separada para não bloquear o programa
-thread = threading.Thread(
-    target=agente.execute,
-    kwargs={"callback": print},
-    daemon=True,
+agent = MonitorAgent(
+    watched_address="0xWallet...",  # singular form also accepted
+    interval_seconds=30,
 )
-thread.start()
+agent.execute(callback=on_change, max_iterations=100)
+```
 
-# Parar após 60 segundos
-time.sleep(60)
-agente.stop()
-thread.join()
+### Event Dictionary
+
+```python
+{
+    "address":        "0xWallet...",  # checksummed
+    "tipo":           "credit",       # "credit" or "debit"
+    "saldo_anterior": 5_000_000_000_000_000_000,   # wei
+    "saldo_atual":    6_000_000_000_000_000_000,   # wei
+    "diferenca_wei":  1_000_000_000_000_000_000,   # always positive
+}
+```
+
+Via CLI:
+
+```bash
+arcdevkit agent monitor 0xWallet... --interval 10 --max 50
 ```
 
 ---
 
-## Criar Carteira
+## `USDCToken`
 
-```bash
-arcdevkit agent wallet create
-```
-
-Saída:
-
-```
-╭─── Nova Carteira Arc ───────────────────────────╮
-│ Endereço:                                       │
-│ 0xAbCd1234...                                   │
-│                                                 │
-│ Chave Privada:                                  │
-│ 0x4f3a...                                       │
-│                                                 │
-│ ATENÇÃO: Guarde a chave em local seguro.        │
-╰─────────────────────────────────────────────────╯
-```
-
-Copie a chave privada para o `.env` (`ARC_PRIVATE_KEY`) e acesse o [faucet da Arc testnet](https://faucet.arc.io) para receber USDC de teste.
-
----
-
-## Compor Agentes
-
-Combine `PaymentAgent` e `MonitorAgent` para criar fluxos mais complexos:
+Wraps the USDC ERC-20 contract with `Decimal` arithmetic at 6 decimal places. Uses the minimal ABI (balanceOf, transfer, allowance, approve) so it works with any ERC-20 that implements those functions.
 
 ```python
-"""
-Monitorar carteira e pagar automaticamente ao detectar crédito.
-"""
-
-import os
-import threading
 from decimal import Decimal
-from arc_devkit.agents.monitor_agent import MonitorAgent
-from arc_devkit.agents.payment_agent import PaymentAgent
+from arc_devkit.usdc import USDCToken
 
-CARTEIRA_MONITORADA = "0xCarteiraEntrada"
-CARTEIRA_SAIDA = "0xCarteiraDestino"
-PERCENTUAL_REPASSE = Decimal("0.90")  # repassar 90% do que chegar
+usdc = USDCToken(contract_address="0xUSDCOnArc...")
 
-pagador = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
-monitor = MonitorAgent(watched_address=CARTEIRA_MONITORADA, interval_seconds=5)
+# Read balance
+balance = usdc.balance("0xYourWallet...")
+print(f"{balance:.6f} USDC")
 
-def ao_receber_credito(evento: dict):
-    if evento["tipo"] != "credito":
-        return
+# Transfer
+tx_hash = usdc.transfer(
+    to="0xRecipient...",
+    amount=Decimal("10.50"),
+    private_key="0xYourKey...",
+    gas=65_000,               # optional; default is 65_000
+)
+print(f"Transfer: {tx_hash}")
 
-    valor_recebido_wei = int(evento["diferenca_wei"])
-    valor_usdc = valor_recebido_wei / 10**18
-    valor_repasse = float(Decimal(str(valor_usdc)) * PERCENTUAL_REPASSE)
+# Allowance check
+allowance = usdc.allowance(owner="0xOwner...", spender="0xSpender...")
+print(f"Approved: {allowance} USDC")
 
-    print(f"Recebido: {valor_usdc:.6f} USDC → repassando {valor_repasse:.6f} USDC")
+# Approve a spender (e.g., a DEX router)
+tx_hash = usdc.approve(
+    spender="0xRouter...",
+    amount=Decimal("100.00"),
+    private_key="0xYourKey...",
+)
+```
 
-    resultado = pagador.execute(
-        to=CARTEIRA_SAIDA,
-        amount_usdc=valor_repasse,
-        enviar=True,
-    )
-    print(f"Repasse: {resultado.get('tx_hash', resultado.get('error'))}")
+The USDC contract address on Arc testnet is not yet published by Circle. The `USDC_ARC_TESTNET_ADDRESS` constant in `token.py` holds a zero-address placeholder. Replace it with the official address once Circle publishes it.
 
-monitor.execute(callback=ao_receber_credito)
+---
+
+## `contracts` — Generic Contract Utilities
+
+These utilities work with any EVM contract, not just USDC.
+
+### Load ABI
+
+```python
+from arc_devkit.contracts import load_abi
+
+# Accepts a raw list: [{"inputs": [...], "name": "...", ...}, ...]
+# or a Hardhat/Foundry artifact: {"abi": [...], "bytecode": "..."}
+abi = load_abi("artifacts/MyToken.json")
+```
+
+### Read-Only Call
+
+```python
+from arc_devkit.contracts import call_view
+
+total_supply = call_view(abi, "0xContract...", "totalSupply")
+owner = call_view(abi, "0xContract...", "owner")
+balance = call_view(abi, "0xContract...", "balanceOf", "0xAddress...")
+```
+
+### State-Changing Transaction
+
+```python
+from arc_devkit.contracts import send_tx
+
+tx_hash = send_tx(
+    abi, "0xContract...", "mint",
+    private_key="0xYourKey...",
+    "0xRecipient...", 1_000_000,   # positional args for the function
+    gas=200_000,                   # optional override; default is 200_000
+)
+print(f"Minted: {tx_hash}")
+```
+
+### Decode Events
+
+```python
+from arc_devkit.contracts import decode_events
+
+receipt = w3.eth.get_transaction_receipt(tx_hash)
+transfers = decode_events(receipt, abi, "Transfer", "0xContract...")
+for t in transfers:
+    print(t["args"]["from"], "→", t["args"]["to"], t["args"]["value"])
 ```
 
 ---
 
-## Solução de Problemas
+## Building a Custom Agent
 
-### `ChavePrivadaNecessariaError` ao executar pagamento
-
-```python
-# Certifique-se de passar a chave privada
-import os
-agente = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
-# ou configure ARC_PRIVATE_KEY no .env
-```
-
-### Saldo insuficiente para gás
-
-Estime o custo antes de pagar:
+Subclass `BaseAgent` and implement the two abstract methods. Call `self._call_rpc()` around any RPC operation to get automatic retry.
 
 ```python
-from arc_devkit.core.gas import estimate_transfer
+from decimal import Decimal
+from arc_devkit.agents.base_agent import BaseAgent
 
-estimativa = estimate_transfer(to="0xDestino...", amount_usdc=10.0)
-print(f"Custo de gás: {estimativa['custo_usdc']} USDC")
-```
+class FaucetAgent(BaseAgent):
+    """Drips a fixed amount to any address on demand."""
 
-### Monitoramento para de funcionar silenciosamente
+    DRIP_AMOUNT = Decimal("0.1")  # USDC
 
-Configure `max_iterations` para garantir que o agente encerre limpo em caso de problema:
+    def get_balance(self) -> dict:
+        wei = self._call_rpc(self._w3.eth.get_balance, self.address)
+        return {"address": self.address, "balance_wei": wei}
 
-```python
-agente.execute(callback=handler, max_iterations=1000)
+    def execute(self, target_address: str) -> dict:
+        tx = {
+            "to": target_address,
+            "value": self._w3.to_wei(self.DRIP_AMOUNT, "ether"),
+            "gas": 21_000,
+            "nonce": self._call_rpc(self._w3.eth.get_transaction_count, self.address),
+            "chainId": self._w3.eth.chain_id,
+        }
+        signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+        tx_hash = self._call_rpc(
+            self._w3.eth.send_raw_transaction, signed.raw_transaction
+        )
+        return {"status": "sent", "tx_hash": tx_hash.hex()}
 ```
 
 ---
 
-## Roadmap
+## Environment Variables
 
-Funcionalidades planejadas para versões futuras:
-
-- **v1.0** — `PaymentAgent` com callbacks (ao_sucesso, ao_falha), tentativas em falha, atraso entre tentativas
-- **v1.0** — `MonitorAgent` com múltiplas carteiras e filtros de evento
-- **v1.0** — Persistência de estado em disco (`~/.arc_devkit/agents/`)
-- **v1.0** — Dashboard CLI com estado dos agentes em execução
-- **v2.0** — `AgenteCambio` — monitorar preços e executar swaps
-- **v2.0** — `AgenteMarketplace` — comprador e vendedor automático
-- **v2.0** — Orquestrador — compor múltiplos agentes em paralelo
-- **v2.0** — Decisões orientadas por IA (integrar Dev Copilot)
+| Variable | Required | Description |
+|---|---|---|
+| `ARC_RPC_URL` | Yes | Single or comma-separated RPC endpoints |
+| `ARC_PRIVATE_KEY` | For writes | Private key for signing transactions |
+| `ARC_CHAIN_ID` | No (default `5042002`) | Override if targeting mainnet |

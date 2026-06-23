@@ -1,49 +1,53 @@
 """
-Exemplo 04 — Monitorar mudanças de saldo de uma carteira.
+Example 04 — Monitor balance changes for one or more wallets.
 
-Executar:
-    python examples/04_monitor_wallet.py 0xCarteiraAqui
+Run:
+    python examples/04_monitor_wallet.py 0xWalletAddress
 
-Requer:
-    ARC_RPC_URL no .env
+Requires:
+    ARC_RPC_URL in .env
 """
 
 import sys
+
 from arc_devkit.agents.monitor_agent import MonitorAgent
 from arc_devkit.core.connection import get_web3
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Uso: python 04_monitor_wallet.py <endereço>")
-        print("Ex:  python 04_monitor_wallet.py 0xAbCd1234...")
+        print("Usage: python 04_monitor_wallet.py <address>")
+        print("Ex:    python 04_monitor_wallet.py 0xAbCd1234...")
         sys.exit(1)
 
-    endereco = sys.argv[1]
+    address = sys.argv[1]
     w3 = get_web3()
 
-    agente = MonitorAgent(watched_address=endereco, interval_seconds=10)
+    # min_change_wei ignores dust changes below 1 gwei
+    agent = MonitorAgent(
+        watched_address=address,
+        interval_seconds=10,
+        min_change_wei=1_000_000_000,
+    )
 
-    saldo_inicial = agente.get_balance()
-    saldo_eth = float(saldo_inicial["balance_eth"])
-    print(f"Monitorando: {saldo_inicial['address']}")
-    print(f"Saldo atual: {saldo_eth:.6f} USDC")
-    print(f"Intervalo:   10s | Pressione Ctrl+C para parar\n")
+    balances = agent.get_balance()
+    info = balances[next(iter(balances))]
+    print(f"Monitoring: {info['address']}")
+    print(f"Balance:    {float(info['balance_eth']):.6f} ARC")
+    print("Interval:   10s | Press Ctrl+C to stop\n")
 
-    def ao_detectar(evento: dict):
-        diferenca_wei = int(evento["diferenca_wei"])
-        diferenca_eth = w3.from_wei(abs(diferenca_wei), "ether")
-        direcao = "+" if diferenca_wei > 0 else "-"
-        saldo_atual_eth = w3.from_wei(int(evento["saldo_atual_wei"]), "ether")
-        print(
-            f"[{evento['tipo'].upper()}] {direcao}{diferenca_eth} USDC "
-            f"→ saldo: {saldo_atual_eth} USDC"
-        )
+    def on_change(event: dict) -> None:
+        diff_wei = int(event["diferenca_wei"])
+        diff_eth = w3.from_wei(abs(diff_wei), "ether")
+        sign = "+" if diff_wei > 0 else "-"
+        new_balance = w3.from_wei(int(event["saldo_atual_wei"]), "ether")
+        print(f"[{event['tipo'].upper()}] {sign}{diff_eth} ARC → balance: {new_balance} ARC")
 
     try:
-        agente.execute(callback=ao_detectar)
+        agent.execute(callback=on_change)
     except KeyboardInterrupt:
-        print("\nMonitoramento encerrado.")
+        agent.stop()
+        print("\nMonitoring stopped.")
 
 
 if __name__ == "__main__":

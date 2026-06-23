@@ -1,316 +1,206 @@
 # Tx Debugger
 
-O Tx Debugger é uma ferramenta de análise e diagnóstico de transações na Arc blockchain. Ele busca os dados via RPC, calcula o custo em USDC e usa o Dev Copilot para gerar um diagnóstico em linguagem natural.
+`TxAnalyzer` fetches a transaction and its receipt via RPC, calculates the USDC gas cost, and generates a natural-language diagnosis through Dev Copilot. The result includes raw on-chain data alongside the AI summary so you can verify the analysis against facts.
+
+On Arc, gas is paid in USDC — not a separate native token. Reverted transactions still consume gas. The Tx Debugger helps you understand *why* a transaction failed and *how much* it cost without manually parsing RPC data.
 
 ---
 
-## Por que debugar transações na Arc?
-
-Na Arc, diferente de outras EVMs, o gás é pago em USDC. Isso significa que:
-
-- Erros custam dinheiro real (USDC, não ETH)
-- Transações que revertem **ainda consomem gás**
-- Contratos mal otimizados têm impacto financeiro direto
-
-O Tx Debugger ajuda você a entender **por que** uma transação falhou e **quanto** custou, sem precisar interpretar dados RPC brutos.
-
----
-
-## Arquitetura atual (v0.1)
+## Architecture
 
 ```
 arc_devkit/debugger/
-└── tx_analyzer.py    # TxAnalyzer — busca RPC + diagnóstico via IA
+└── tx_analyzer.py    # TxAnalyzer — RPC fetch + AI analysis via DevCopilot
 ```
 
-### Fluxo de análise
+### Analysis Flow
 
 ```
 tx_hash
     ↓
-eth_getTransaction + eth_getTransactionReceipt  ← dados brutos via RPC
+eth_getTransaction + eth_getTransactionReceipt  ← raw RPC data
     ↓
-Calcular custo em USDC  ← gas_used × gas_price → ether
+Calculate USDC cost  ← gas_used × gas_price → from_wei("ether")
     ↓
-DevCopilot.ask()  ← diagnóstico em linguagem natural
+DevCopilot.ask()  ← natural-language diagnosis
     ↓
-Dict com status, custo, resumo e dados brutos
+dict with status, cost, AI summary, and raw transaction data
 ```
 
 ---
 
-## API Python
-
-### `TxAnalyzer.analyze(tx_hash)` — análise completa
+## Python API
 
 ```python
 from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 
 analyzer = TxAnalyzer()
+result = analyzer.analyze("0xTxHash...")
 
-resultado = analyzer.analyze("0xHashDaTransacao...")
-
-# Campos do resultado
-print(resultado["hash"])        # str — hash da transação
-print(resultado["status"])      # str — "sucesso" ou "revertida"
-print(resultado["custo_usdc"])  # str — custo em USDC (Decimal como string)
-print(resultado["resumo"])      # str — análise gerada pelo Dev Copilot (Markdown)
-print(resultado["erro"])        # str | None — "Transação revertida" ou None
-print(resultado["sugestao"])    # str — incluído no resumo
-print(resultado["dados_brutos"])  # dict — dados brutos da transação
+print(result["hash"])         # str — transaction hash
+print(result["status"])       # str — "success" or "reverted"
+print(result["custo_usdc"])   # str — gas cost as Decimal-formatted string
+print(result["resumo"])       # str — AI diagnosis (Markdown)
+print(result["erro"])         # str | None — "Transaction reverted" or None
+print(result["dados_brutos"]) # dict — raw transaction data from RPC
 ```
 
-### Campos de `dados_brutos`
+### `dados_brutos` Fields
 
 ```python
-brutos = resultado["dados_brutos"]
+raw = result["dados_brutos"]
 
-print(brutos["hash"])                    # hash da transação
-print(brutos["de"])                      # endereço remetente
-print(brutos["para"])                    # endereço destinatário
-print(brutos["valor_wei"])               # valor em wei
-print(brutos["gas_limite"])              # gas limit configurado
-print(brutos["gas_usado"])               # gas efetivamente consumido
-print(brutos["status"])                  # "sucesso" ou "revertida"
-print(brutos["custo_estimado_usdc"])     # custo em USDC
-print(brutos["bloco"])                   # número do bloco
-print(brutos["logs_count"])              # número de eventos emitidos
+print(raw["hash"])                 # transaction hash
+print(raw["de"])                   # sender address
+print(raw["para"])                 # recipient address
+print(raw["valor_wei"])            # value transferred in wei
+print(raw["gas_limite"])           # gas limit set by the sender
+print(raw["gas_usado"])            # gas actually consumed
+print(raw["status"])               # "success" or "reverted"
+print(raw["custo_estimado_usdc"])  # gas cost in USDC (Decimal string)
+print(raw["bloco"])                # block number
+print(raw["logs_count"])           # number of events emitted
 ```
 
-### Tratamento de erros de busca
+### Not-Found Case
 
 ```python
-from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+result = analyzer.analyze("0xInvalidHash...")
 
-analyzer = TxAnalyzer()
-
-resultado = analyzer.analyze("0xHashInvalido...")
-
-if resultado["status"] == "erro":
-    print(f"Não foi possível buscar a transação: {resultado['erro']}")
-    print(f"Sugestão: {resultado['sugestao']}")
+if result["status"] == "error":
+    print(f"Could not fetch transaction: {result['erro']}")
 ```
 
 ---
 
-## Interface de Linha de Comando
+## CLI
 
 ```bash
-# Análise completa com saída formatada
-arcdevkit debug tx 0xHashDaTransacao...
+# Analyze a transaction with formatted output
+arc debug 0xTxHash...
+arcdevkit debug tx 0xTxHash...
 
-# Saída em JSON (útil para scripts)
-arcdevkit debug tx 0xHashDaTransacao... --json
+# Machine-readable JSON
+arc debug 0xTxHash... --json
+arcdevkit debug tx 0xTxHash... --json
 
-# Estimar custo de uma transferência antes de enviar
-arcdevkit debug estimate 0xDestinatario... 10.0
+# Estimate gas cost before sending
+arc gas 0xDest... 10.0
+arcdevkit debug estimate 0xDest... 10.0
 
-# Estimar com endereço remetente (mais preciso)
-arcdevkit debug estimate 0xDestinatario... 10.0 --from 0xSuaCarteira...
+# More precise estimate with a sender address
+arcdevkit debug estimate 0xDest... 10.0 --from 0xYourWallet...
 ```
+
+`arc debug` also saves results to `~/.arc_devkit/history.json` automatically, so you can review past analyses with `arc history`.
 
 ---
 
-## Exemplos
+## Examples
 
-### Exemplo 1: Diagnóstico básico
+### Diagnose a Failed Transaction
 
 ```python
 from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 
 analyzer = TxAnalyzer()
+result = analyzer.analyze("0xTxHash...")
 
-resultado = analyzer.analyze("0xHashDaTransacaoAqui")
-
-if resultado["status"] == "revertida":
-    print("Transação falhou!")
-    print(f"Custo perdido: {resultado['custo_usdc']} USDC")
-    print(f"\nDiagnóstico:\n{resultado['resumo']}")
+if result["status"] == "reverted":
+    print(f"Transaction failed — cost: {result['custo_usdc']} USDC")
+    print(f"\nDiagnosis:\n{result['resumo']}")
 else:
-    print("Transação bem-sucedida!")
-    print(f"Custo: {resultado['custo_usdc']} USDC")
-    print(f"\nResumo:\n{resultado['resumo']}")
+    print(f"Success — cost: {result['custo_usdc']} USDC")
+    print(f"\nSummary:\n{result['resumo']}")
 ```
 
-Saída esperada (transação revertida):
+Example output for a reverted transaction:
 
 ```
-Transação falhou!
-Custo perdido: 0.000021 USDC
+Transaction failed — cost: 0.000021 USDC
 
-Diagnóstico:
-## O que a transação fez
-Tentativa de transferência de 10 USDC para 0xDest...
+Diagnosis:
+## What the transaction did
+Attempted transfer of 10 USDC to 0xDest...
 
 ## Status
-Falha — saldo insuficiente para cobrir o valor + gás.
+Failed — insufficient balance to cover value + gas.
 
-## Custo em USDC
-0.000021 USDC (21.000 gas × 0.001 gwei)
+## Gas cost
+0.000021 USDC (21,000 gas × 0.001 gwei)
 
-## Sugestão
-Reduza o valor da transferência ou adicione USDC à carteira.
+## Suggestion
+Reduce the transfer amount or add USDC to the wallet.
 ```
 
-### Exemplo 2: Saída JSON bruta
+### Batch Analysis
 
 ```python
-import json
-from arc_devkit.debugger.tx_analyzer import TxAnalyzer
-
-analyzer = TxAnalyzer()
-
-resultado = analyzer.analyze("0xHashAqui")
-print(json.dumps(resultado, indent=2, ensure_ascii=False))
-```
-
-### Exemplo 3: Monitorar e analisar transações em sequência
-
-```python
-"""
-Analisar múltiplas transações e gerar relatório de custos.
-"""
-
 import json
 from decimal import Decimal
 from arc_devkit.debugger.tx_analyzer import TxAnalyzer
 
-hashes = [
-    "0xHash1...",
-    "0xHash2...",
-    "0xHash3...",
-]
-
+hashes = ["0xHash1...", "0xHash2...", "0xHash3..."]
 analyzer = TxAnalyzer()
-resultados = []
+results = [analyzer.analyze(h) for h in hashes]
 
-for tx_hash in hashes:
-    print(f"Analisando {tx_hash[:20]}...")
-    resultado = analyzer.analyze(tx_hash)
-    resultados.append(resultado)
+total_cost = sum(Decimal(r["custo_usdc"]) for r in results)
+failures = sum(1 for r in results if r["status"] == "reverted")
 
-# Calcular totais
-total_custo = sum(Decimal(r["custo_usdc"]) for r in resultados)
-total_falhas = sum(1 for r in resultados if r["status"] == "revertida")
+print(f"Transactions: {len(results)}, Failures: {failures}")
+print(f"Total cost:   {total_cost:.6f} USDC")
 
-print(f"\n=== Relatório ===")
-print(f"Transações: {len(resultados)}")
-print(f"Falhas:     {total_falhas}")
-print(f"Custo total: {total_custo:.6f} USDC")
-
-# Salvar detalhes
-with open("relatorio.json", "w") as f:
-    json.dump(resultados, f, indent=2, ensure_ascii=False)
+with open("report.json", "w") as f:
+    json.dump(results, f, indent=2)
 ```
 
-### Exemplo 4: Integrar com MonitorAgent
-
-```python
-"""
-Monitorar carteira e analisar automaticamente cada transação detectada.
-"""
-
-from arc_devkit.agents.monitor_agent import MonitorAgent
-from arc_devkit.debugger.tx_analyzer import TxAnalyzer
-
-monitor = MonitorAgent(watched_address="0xCarteiraAqui", interval_seconds=5)
-analyzer = TxAnalyzer()
-
-def ao_detectar_mudanca(evento: dict):
-    print(f"Mudança detectada ({evento['tipo']})")
-    # nota: o evento de saldo não tem o hash da tx diretamente —
-    # use eth_getTransactionByBlock para obter o hash se necessário
-    print(f"Saldo anterior: {evento['saldo_anterior_wei']} wei")
-    print(f"Saldo atual:    {evento['saldo_atual_wei']} wei")
-
-monitor.execute(callback=ao_detectar_mudanca, max_iterations=200)
-```
-
----
-
-## Estimar custo de gás
-
-Antes de enviar, estime o custo com `core.gas`:
+### Gas Estimation Before Sending
 
 ```python
 from arc_devkit.core.gas import estimate_transfer
 
-# Estimativa sem endereço remetente (usa gas fixo de 21.000)
-est = estimate_transfer(to="0xDestino...", amount_usdc=5.0)
+# Without sender (uses fixed 21,000 gas estimate)
+est = estimate_transfer(to="0xDest...", amount_usdc=5.0)
 
-# Estimativa com remetente (usa eth_estimateGas — mais preciso)
+# With sender (calls eth_estimateGas — more accurate)
 est = estimate_transfer(
-    to="0xDestino...",
+    to="0xDest...",
     amount_usdc=5.0,
-    from_address="0xSuaCarteira...",
+    from_address="0xYourWallet...",
 )
 
 print(f"Gas limit:  {est['gas_limit']}")
 print(f"Gas price:  {est['gas_price_gwei']} gwei")
-print(f"Custo:      {est['custo_usdc']} USDC")
-```
-
-Via CLI:
-
-```bash
-arcdevkit debug estimate 0xDestino... 5.0
-arcdevkit debug estimate 0xDestino... 5.0 --from 0xSuaCarteira...
+print(f"Cost:       {est['custo_usdc']} USDC")
 ```
 
 ---
 
-## Formato de saída CLI
+## CLI Output Format
 
 ```
-╭── Transação 0xHashAqui... ─────────────────────────────────╮
-│ Hash    0xHashAqui...                                       │
-│ Status  ✗ revertida                                         │
-│ Custo Gás  0.000021 USDC                                   │
-╰─────────────────────────────────────────────────────────────╯
+╭── Transaction 0xHash... ────────────────────────────────────╮
+│ Hash    0xHash...                                            │
+│ Status  ✗ reverted                                           │
+│ Gas     0.000021 USDC                                        │
+╰──────────────────────────────────────────────────────────────╯
 
-╭── Análise ─────────────────────────────────────────────────╮
-│ ## O que a transação fez                                   │
-│ Tentativa de transferência de 10 USDC para 0xDest...       │
-│                                                            │
-│ ## Status                                                  │
-│ Falha — saldo insuficiente para cobrir o valor + gás.      │
-│                                                            │
-│ ## Sugestão                                                │
-│ Reduza o valor ou adicione USDC à carteira.                │
-╰─────────────────────────────────────────────────────────────╯
+╭── Analysis ─────────────────────────────────────────────────╮
+│ ## What the transaction did                                  │
+│ Attempted transfer of 10 USDC to 0xDest...                  │
+│                                                              │
+│ ## Status                                                    │
+│ Failed — insufficient balance to cover value + gas.          │
+│                                                              │
+│ ## Suggestion                                                │
+│ Reduce the amount or add USDC to the wallet.                 │
+╰──────────────────────────────────────────────────────────────╯
 ```
 
 ---
 
-## Solução de Problemas
+## Troubleshooting
 
-### `Não foi possível buscar a transação`
+**"Could not fetch transaction"** — verify the hash format (`0x` + 64 hex chars) and that `ARC_RPC_URL` is reachable (`arc status`). The transaction may also not yet be mined.
 
-- Verifique se o hash está correto (formato `0x` + 64 hex)
-- Verifique se `ARC_RPC_URL` está acessível: `arcdevkit status`
-- A transação pode não ter sido mineirada ainda
-
-### Análise de IA indisponível
-
-Se `ANTHROPIC_API_KEY` não estiver configurada, o resumo volta a um formato básico:
-
-```
-Status: revertida | Gas usado: 21000 | Custo: 0.000021 USDC
-```
-
-O resto do resultado (hash, status, custo, dados brutos) continua disponível normalmente.
-
----
-
-## Roadmap
-
-Funcionalidades planejadas para versões futuras:
-
-- **v1.0** — `debug_traceTransaction` — stack trace de execução completo
-- **v1.0** — Resolução de ABI via Sourcify + cache local
-- **v1.0** — Decodificação de parâmetros de entrada/saída
-- **v1.0** — `comparar(hash1, hash2)` — diff entre duas transações
-- **v1.0** — `historico(carteira)` — histórico com filtros e métricas
-- **v1.0** — Exportação CSV para análise de custos
-- **v2.0** — Análise de MEV/front-running específico para Arc
-- **v2.0** — Relatórios de auditoria de gás em PDF
+**AI analysis unavailable** — if `ANTHROPIC_API_KEY` is not set, `resumo` falls back to a plain-text summary: `Status: reverted | Gas used: 21000 | Cost: 0.000021 USDC`. All other fields (`status`, `custo_usdc`, `dados_brutos`) remain available.
