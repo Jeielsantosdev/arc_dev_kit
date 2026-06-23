@@ -1,0 +1,122 @@
+---
+title: "Dev Copilot"
+description: "Assistente IA powered by Claude com contexto Arc blockchain embutido."
+section: "Módulos"
+order: 10
+---
+
+O `DevCopilot` é um assistente IA baseado no Claude Sonnet da Anthropic, com contexto completo da blockchain Arc embutido no system prompt. Responde perguntas, gera código, explica conceitos do ecossistema Circle — sem configuração extra.
+
+## Instalação e importação
+
+```python
+from arc_devkit.copilot.agent import DevCopilot
+```
+
+## Uso básico
+
+```python
+copilot = DevCopilot()
+
+# Pergunta simples
+answer = copilot.ask("What is the gas cost in USDC for a transfer on Arc?")
+print(answer)
+```
+
+## Streaming
+
+Receba tokens à medida que o modelo os gera:
+
+```python
+for chunk in copilot.ask_stream("Write a recurring payment agent in Python"):
+    print(chunk, end="", flush=True)
+```
+
+## Conversa multi-turn
+
+O histórico é mantido em memória por instância:
+
+```python
+copilot.ask("What is Circle CCTP?")
+copilot.ask("Show me a Python example of a cross-chain USDC transfer")
+# O contexto da primeira pergunta está disponível na segunda
+```
+
+## Imagens como contexto
+
+Suporte a PNG, JPEG, GIF e WebP:
+
+```python
+answer = copilot.ask(
+    "What does this error mean?",
+    image_path="screenshot.png"
+)
+```
+
+## Contagem de tokens
+
+Estime o custo antes de fazer a chamada (sem custo de API):
+
+```python
+tokens = copilot.count_tokens("Explain how Malachite consensus works")
+print(f"~{tokens} tokens")
+```
+
+## Modo offline
+
+Útil em CI/CD ou ambientes sem chave de API:
+
+```python
+copilot = DevCopilot(offline=True)
+response = copilot.ask("anything")
+# → "[Offline mode] Arc DevKit is running in offline mode."
+```
+
+## Contexto customizado
+
+Injete descrição do seu projeto ou ABI de contrato:
+
+```python
+copilot = DevCopilot(
+    extra_context="This project uses a custom USDC vault at 0xABC..."
+)
+```
+
+## Referência da API
+
+### `DevCopilot(offline=False, extra_context=None)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `offline` | `bool` | Se `True`, retorna resposta estática sem chamar a API |
+| `extra_context` | `str \| None` | Contexto adicional injetado no system prompt |
+
+### `ask(prompt, image_path=None)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `prompt` | `str` | Pergunta ou instrução para o modelo |
+| `image_path` | `str \| None` | Caminho para imagem a ser enviada como contexto |
+
+**Retorna:** `str` — resposta completa do modelo.
+
+### `ask_stream(prompt, image_path=None)`
+
+**Retorna:** `Generator[str, None, None]` — chunks de texto conforme o modelo gera.
+
+### `count_tokens(prompt)`
+
+**Retorna:** `int` — estimativa de tokens sem fazer chamada de geração.
+
+## Features
+
+| Feature | Descrição |
+|---|---|
+| Cache | 5 minutos de TTL por hash MD5 do prompt + modelo |
+| Histórico | `self.history` — lista de mensagens da conversa atual |
+| Token logging | Uso de tokens logado em cada chamada (`DEBUG`) |
+| Modelo configurável | `ANTHROPIC_MODEL` env var (padrão: `claude-sonnet-4-6`) |
+
+<Callout type="tip" title="Uma instância por sessão">
+  `DevCopilot` é instanciado por chamada — não é um singleton. Se quiser histórico contínuo, mantenha a mesma instância durante a sessão.
+</Callout>
