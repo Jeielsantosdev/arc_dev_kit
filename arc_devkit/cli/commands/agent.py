@@ -1,20 +1,20 @@
-"""Comandos CLI para gerenciamento de carteiras e agentes Arc."""
+"""CLI commands for wallet and agent management on Arc."""
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-app = typer.Typer(help="Gerenciamento de carteiras e agentes econômicos Arc.")
+app = typer.Typer(help="Wallet and economic agent management for Arc.")
 console = Console()
 
 
 @app.command(name="create-wallet")
 def create_wallet() -> None:
     """
-    Cria uma nova carteira EVM e exibe endereço e chave privada.
+    Create a new EVM wallet and display its address and private key.
 
-    A chave privada gerada é exibida UMA ÚNICA VEZ. Guarde em local seguro.
+    The private key is shown ONCE. Store it in a safe place.
     """
     from arc_devkit.core.wallet import create_wallet as _criar
 
@@ -22,14 +22,14 @@ def create_wallet() -> None:
 
     console.print(
         Panel(
-            f"[bold green]✓ Nova carteira criada![/bold green]\n\n"
-            f"  [bold]Endereço:[/bold]\n"
+            f"[bold green]✓ New wallet created![/bold green]\n\n"
+            f"  [bold]Address:[/bold]\n"
             f"  [cyan]{carteira['address']}[/cyan]\n\n"
-            f"  [bold]Chave Privada:[/bold]\n"
+            f"  [bold]Private Key:[/bold]\n"
             f"  [dim]{carteira['private_key']}[/dim]\n\n"
-            "[bold red]⚠ ATENÇÃO:[/bold red] A chave privada é exibida apenas agora.\n"
-            "Guarde-a em local seguro. Nunca compartilhe ou commite no git.",
-            title="[bold green]Nova Carteira Arc[/bold green]",
+            "[bold red]⚠ WARNING:[/bold red] Private key shown only once.\n"
+            "Store it securely. Never share or commit to git.",
+            title="[bold green]New Arc Wallet[/bold green]",
             border_style="green",
             padding=(1, 2),
         )
@@ -38,24 +38,24 @@ def create_wallet() -> None:
 
 @app.command()
 def balance(
-    address: str = typer.Argument(..., help="Endereço EVM a consultar."),
+    address: str = typer.Argument(..., help="EVM address to query."),
 ) -> None:
-    """Exibe o saldo de uma carteira na Arc testnet."""
+    """Display the balance of an Arc wallet."""
     from arc_devkit.core.wallet import get_balance
 
-    with console.status("[bold]Consultando saldo...[/bold]", spinner="dots"):
+    with console.status("[bold]Fetching balance...[/bold]", spinner="dots"):
         resultado = get_balance(address)
 
-    console.print(f"\n  [bold]Carteira:[/bold] [cyan]{resultado['address']}[/cyan]")
-    console.print(f"  [bold]Saldo:   [/bold] [green]{resultado['balance_usdc']}[/green] USDC\n")
+    console.print(f"\n  [bold]Wallet:[/bold] [cyan]{resultado['address']}[/cyan]")
+    console.print(f"  [bold]Balance:[/bold] [green]{resultado['balance_usdc']}[/green] USDC\n")
 
 
 @app.command()
 def status() -> None:
-    """Exibe informações da rede Arc (bloco atual, chain ID, gas price)."""
+    """Display Arc network information (current block, chain ID, gas price)."""
     from arc_devkit.core.connection import get_web3
 
-    with console.status("[bold]Consultando a rede Arc...[/bold]", spinner="dots"):
+    with console.status("[bold]Querying Arc network...[/bold]", spinner="dots"):
         w3 = get_web3()
         bloco = w3.eth.block_number
         chain_id = w3.eth.chain_id
@@ -63,16 +63,16 @@ def status() -> None:
         conectado = w3.is_connected()
 
     tabela = Table(
-        title="Status da Rede Arc",
+        title="Arc Network Status",
         show_header=True,
         header_style="bold magenta",
         border_style="magenta",
     )
-    tabela.add_column("Propriedade", style="bold", min_width=14)
-    tabela.add_column("Valor")
+    tabela.add_column("Property", style="bold", min_width=14)
+    tabela.add_column("Value")
 
-    tabela.add_row("Conectado", "[green]✓ Sim[/green]" if conectado else "[red]✗ Não[/red]")
-    tabela.add_row("Bloco Atual", f"[bold]#{bloco}[/bold]")
+    tabela.add_row("Connected", "[green]✓ Yes[/green]" if conectado else "[red]✗ No[/red]")
+    tabela.add_row("Current Block", f"[bold]#{bloco}[/bold]")
     tabela.add_row("Chain ID", str(chain_id))
     tabela.add_row("Gas Price", f"{gas_price_gwei} gwei")
 
@@ -81,90 +81,92 @@ def status() -> None:
 
 @app.command()
 def pay(
-    to: str = typer.Argument(..., help="Endereço EVM de destino."),
-    amount: float = typer.Argument(..., help="Valor a transferir (em USDC)."),
-    send: bool = typer.Option(False, "--send", help="Envia a transação à rede (requer ARC_PRIVATE_KEY)."),
-    private_key: str = typer.Option("", "--key", help="Chave privada (sobrescreve ARC_PRIVATE_KEY)."),
+    to: str = typer.Argument(..., help="Recipient EVM address."),
+    amount: float = typer.Argument(..., help="Amount to transfer (in USDC)."),
+    send: bool = typer.Option(
+        False, "--send", help="Send the transaction to the network (requires ARC_PRIVATE_KEY)."
+    ),
+    private_key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
 ) -> None:
     """
-    Prepara (e opcionalmente envia) um pagamento na Arc.
+    Prepare (and optionally send) a payment on Arc.
 
-    Sem --send, exibe a transação assinada sem enviá-la (modo seguro padrão).
+    Without --send, displays the signed transaction without broadcasting it (safe default mode).
 
-    Exemplos:
+    Examples:
       arcdevkit agent pay 0xDest... 5.0
       arcdevkit agent pay 0xDest... 5.0 --send
-      arcdevkit agent pay 0xDest... 5.0 --send --key 0xSUAKEY...
+      arcdevkit agent pay 0xDest... 5.0 --send --key 0xYOURKEY...
     """
     from arc_devkit.agents.payment_agent import PaymentAgent
 
     agente = PaymentAgent(private_key=private_key or None)
 
     with console.status(
-        f"[bold green]{'Enviando' if send else 'Preparando'} pagamento de {amount} USDC → {to[:10]}...[/bold green]",
+        f"[bold green]{'Sending' if send else 'Preparing'} payment of {amount} USDC → {to[:10]}...[/bold green]",
         spinner="dots",
     ):
         resultado = agente.execute(to=to, amount_usdc=amount, enviar=send)
 
-    if resultado.get("status") == "erro":
-        console.print(f"\n[red]✗ Erro:[/red] {resultado.get('error')}\n")
+    if resultado.get("status") == "error":
+        console.print(f"\n[red]✗ Error:[/red] {resultado.get('error')}\n")
         raise typer.Exit(1)
 
     tabela = Table(
-        title="Pagamento Arc",
+        title="Arc Payment",
         show_header=True,
         header_style="bold green",
         border_style="green",
     )
-    tabela.add_column("Campo", style="bold", min_width=14)
-    tabela.add_column("Valor")
+    tabela.add_column("Field", style="bold", min_width=14)
+    tabela.add_column("Value")
 
     tabela.add_row("Status", f"[green]{resultado['status']}[/green]")
-    tabela.add_row("De", resultado.get("from", "N/A"))
-    tabela.add_row("Para", resultado.get("to", "N/A"))
-    tabela.add_row("Valor", f"{resultado.get('amount_usdc', amount)} USDC")
+    tabela.add_row("From", resultado.get("from", "N/A"))
+    tabela.add_row("To", resultado.get("to", "N/A"))
+    tabela.add_row("Amount", f"{resultado.get('amount_usdc', amount)} USDC")
 
     if resultado.get("tx_hash"):
         tabela.add_row("TX Hash", f"[cyan]{resultado['tx_hash']}[/cyan]")
     if resultado.get("nota"):
-        tabela.add_row("Nota", f"[dim]{resultado['nota']}[/dim]")
+        tabela.add_row("Note", f"[dim]{resultado['nota']}[/dim]")
 
     console.print(tabela)
 
 
 @app.command()
 def monitor(
-    address: str = typer.Argument(..., help="Endereço EVM a monitorar."),
-    interval: int = typer.Option(15, "--interval", "-i", help="Intervalo de polling em segundos."),
-    max_iter: int = typer.Option(0, "--max", help="Número máximo de iterações (0 = infinito)."),
+    address: str = typer.Argument(..., help="EVM address to monitor."),
+    interval: int = typer.Option(15, "--interval", "-i", help="Polling interval in seconds."),
+    max_iter: int = typer.Option(0, "--max", help="Maximum iterations (0 = infinite)."),
 ) -> None:
     """
-    Monitora uma carteira Arc e exibe alertas ao detectar mudanças de saldo.
+    Monitor an Arc wallet and display alerts when the balance changes.
 
-    Pressione Ctrl+C para encerrar o monitoramento.
+    Press Ctrl+C to stop monitoring.
 
-    Exemplos:
-      arcdevkit agent monitor 0xCarteira...
-      arcdevkit agent monitor 0xCarteira... --interval 5 --max 20
+    Examples:
+      arcdevkit agent monitor 0xWallet...
+      arcdevkit agent monitor 0xWallet... --interval 5 --max 20
     """
     from arc_devkit.agents.monitor_agent import MonitorAgent
 
     def _callback(evento: dict) -> None:
-        tipo = evento["tipo"]
-        diferenca_wei = int(evento["diferenca_wei"])
-        cor = "green" if tipo == "credito" else "red"
-        sinal = "+" if tipo == "credito" else "-"
+        tipo = evento["type"]
+        change_wei = int(evento["change_wei"])
+        cor = "green" if tipo == "credit" else "red"
+        sinal = "+" if tipo == "credit" else "-"
         console.print(
-            f"  [{cor}]{sinal}{abs(diferenca_wei)} wei ({tipo})[/{cor}]"
-            f" → saldo: {evento['saldo_atual_wei']} wei"
+            f"  [{cor}]{sinal}{abs(change_wei)} wei ({tipo})[/{cor}]"
+            f" → balance: {evento['balance_wei']} wei"
         )
 
     agente = MonitorAgent(watched_address=address, interval_seconds=interval)
 
     console.print(
         Panel.fit(
-            f"[bold]Monitorando:[/bold] [cyan]{address}[/cyan]\n"
-            f"[dim]Intervalo: {interval}s  |  Ctrl+C para parar[/dim]",
+            f"[bold]Monitoring:[/bold] [cyan]{address}[/cyan]\n"
+            f"[dim]Interval: {interval}s  |  Ctrl+C to stop[/dim]",
             border_style="magenta",
         )
     )
@@ -173,4 +175,4 @@ def monitor(
         agente.execute(callback=_callback, max_iterations=max_iter)
     except KeyboardInterrupt:
         agente.stop()
-        console.print("\n[dim]Monitoramento encerrado.[/dim]\n")
+        console.print("\n[dim]Monitoring stopped.[/dim]\n")

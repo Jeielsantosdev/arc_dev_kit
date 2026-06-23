@@ -1,4 +1,4 @@
-"""Operações de carteira na Arc blockchain."""
+"""Wallet operations on the Arc blockchain."""
 
 import logging
 from decimal import Decimal
@@ -10,24 +10,24 @@ from arc_devkit.core.connection import get_web3
 
 logger = logging.getLogger(__name__)
 
-# USDC usa 6 casas decimais (padrão Circle)
+# USDC uses 6 decimal places (Circle standard)
 USDC_DECIMALS = 6
 USDC_MULTIPLIER = 10**USDC_DECIMALS
 
 
 def create_wallet() -> dict[str, str]:
     """
-    Cria uma nova carteira EVM aleatória.
+    Create a new random EVM wallet.
 
     Returns:
-        Dict com 'address' (checksummed) e 'private_key' (hex com prefixo 0x).
+        Dict with 'address' (checksummed) and 'private_key' (hex with 0x prefix).
 
     Warning:
-        A chave privada gerada nunca é armazenada — guarde-a imediatamente
-        em local seguro. Perder a chave significa perder acesso à carteira.
+        The generated private key is never stored — save it immediately
+        in a secure location. Losing the key means losing access to the wallet.
     """
     account = Account.create()
-    logger.info("Nova carteira criada: %s", account.address)
+    logger.info("New wallet created: %s", account.address)
     key_hex = account.key.hex()
     return {
         "address": account.address,
@@ -37,26 +37,26 @@ def create_wallet() -> dict[str, str]:
 
 def get_balance(address: str) -> dict[str, str | Decimal]:
     """
-    Retorna o saldo nativo de um endereço Arc.
+    Return the native balance of an Arc address.
 
-    Na Arc, USDC é o token de gás. Este método retorna o saldo nativo
-    da rede. Para saldo do contrato USDC ERC-20, será necessário o
-    endereço do contrato USDC na Arc (a confirmar com a documentação oficial).
+    On Arc, USDC is the gas token. This method returns the native network balance.
+    For ERC-20 USDC contract balance, use the USDCToken module with the
+    official USDC contract address on Arc.
 
     Args:
-        address: Endereço EVM (com ou sem checksum).
+        address: EVM address (checksummed or not).
 
     Returns:
-        Dict com address, balance_wei e balance_usdc (Decimal).
+        Dict with address, balance_wei and balance_usdc (Decimal).
     """
     w3 = get_web3()
     checksum_addr = Web3.to_checksum_address(address)
 
     wei = w3.eth.get_balance(checksum_addr)
-    # Converte para valor legível (18 casas decimais para saldo nativo)
+    # Convert to human-readable value (18 decimals for native balance)
     balance_human = Decimal(str(w3.from_wei(wei, "ether")))
 
-    logger.debug("Saldo de %s: %s (%d wei)", checksum_addr, balance_human, wei)
+    logger.debug("Balance of %s: %s (%d wei)", checksum_addr, balance_human, wei)
 
     return {
         "address": checksum_addr,
@@ -66,7 +66,7 @@ def get_balance(address: str) -> dict[str, str | Decimal]:
 
 
 def get_block_number() -> int:
-    """Retorna o número do bloco mais recente na Arc."""
+    """Return the most recent block number on Arc."""
     bloco = get_web3().eth.block_number
-    logger.debug("Bloco atual: #%d", bloco)
+    logger.debug("Current block: #%d", bloco)
     return bloco

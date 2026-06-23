@@ -1,34 +1,42 @@
-"""Agente de pagamento Arc — monta e assina transações de transferência."""
+"""Arc payment agent — builds and signs transfer transactions."""
 
 import logging
+import time
+from collections.abc import Callable
 from decimal import Decimal
+from typing import Any, cast
 
+from eth_typing import ChecksumAddress
 from web3 import Web3
+from web3.types import TxParams
 
 from arc_devkit.agents.base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
 
+_RECEIPT_POLL_INTERVAL = 2  # seconds between receipt polling attempts
+_RECEIPT_TIMEOUT = 120  # maximum timeout in seconds
+
 
 class PaymentAgent(BaseAgent):
     """
-    Agente responsável por executar pagamentos na rede Arc.
+    Executes payments on the Arc network.
 
-    Monta, assina e (opcionalmente) envia transações de transferência.
-    Projetado para ser reutilizado em fluxos de pagamento recorrente.
+    Builds, signs, and optionally broadcasts transfer transactions.
+    Supports automatic gas estimation, receipt polling, batch sends, and callbacks.
     """
 
     def get_balance(self) -> dict:
         """
-        Retorna o saldo nativo da carteira do agente.
+        Return the native wallet balance.
 
         Returns:
-            Dict com address, balance_wei e balance_usdc (Decimal).
+            Dict with address, balance_wei, and balance_usdc (Decimal).
         """
         if not self._address:
-            return {"error": "Nenhuma chave privada configurada — modo somente leitura."}
+            return {"error": "No private key configured — read-only mode."}
 
-        wei = self._w3.eth.get_balance(self._address)
+        wei = self._w3.eth.get_balance(cast(ChecksumAddress, self._address))
         balance = Decimal(str(self._w3.from_wei(wei, "ether")))
 
         return {
@@ -37,61 +45,210 @@ class PaymentAgent(BaseAgent):
             "balance_usdc": balance,
         }
 
-    def execute(self, to: str, amount_usdc: float, enviar: bool = False) -> dict:
+    def _estimate_gas(self, tx: TxParams) -> int:
+        """Call eth_estimateGas; return 21,000 as fallback."""
+        try:
+            return self._w3.eth.estimate_gas(tx)
+        except Exception as exc:
+            logger.warning("eth_estimateGas failed (%s), using 21,000", exc)
+            return 21_000
+
+    def _wait_for_receipt(self, tx_hash: Any, timeout: int = _RECEIPT_TIMEOUT) -> dict | None:
+        """Poll eth_getTransactionReceipt until confirmed or timeout."""
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                receipt = self._w3.eth.get_transaction_receipt(tx_hash)
+                if receipt is not None:
+                    return dict(receipt)
+            except Exception:
+                pass
+            time.sleep(_RECEIPT_POLL_INTERVAL)
+        return None
+
+    def _simulate(self, tx: TxParams) -> bool:
+        """Simulate transaction via eth_call to detect reverts before sending."""
+        try:
+            self._w3.eth.call(tx)
+            return True
+        except Exception as exc:
+            logger.warning("Simulation detected revert: %s", exc)
+            return False
+
+    def _build_usdc_signed_tx(self, to: str, amount: Decimal) -> tuple:
+        """Build and sign a USDC ERC-20 transfer tx; return (signed, gas_limit)."""
+        from arc_devkit.usdc.token import _ERC20_ABI, USDC_MULTIPLIER, USDC_ARC_TESTNET_ADDRESS
+
+        usdc_address = Web3.to_checksum_address(USDC_ARC_TESTNET_ADDRESS)
+        contract = self._w3.eth.contract(address=usdc_address, abi=_ERC20_ABI)
+        atomic = int(amount * Decimal(str(USDC_MULTIPLIER)))
+        nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
+
+        tx = contract.functions.transfer(to, atomic).build_transaction(
+            cast(TxParams, {
+                "from": self._address,
+                "nonce": nonce,
+                "gasPrice": self._w3.eth.gas_price,
+                "chainId": self._w3.eth.chain_id,
+            })
+        )
+        gas_limit = self._estimate_gas(cast(TxParams, tx))
+        tx["gas"] = gas_limit
+        signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+        return signed, gas_limit
+
+    def execute(  # type: ignore[override]
+        self,
+        to: str,
+        amount_usdc: float,
+        enviar: bool = False,
+        wait_receipt: bool = True,
+        on_success: Callable[[dict], None] | None = None,
+        on_failure: Callable[[Exception], None] | None = None,
+        token: str = "native",
+    ) -> dict:
         """
-        Monta e assina uma transação de pagamento.
+        Build and sign a payment transaction.
 
         Args:
-            to: Endereço EVM do destinatário.
-            amount_usdc: Valor a transferir (em USDC).
-            enviar: Se True, envia a transação para a rede (requer chave privada).
-                    Se False (padrão), retorna a transação assinada sem enviar.
+            to: EVM recipient address.
+            amount_usdc: Amount to transfer.
+            enviar: If True, broadcasts to the network (requires private key).
+            wait_receipt: If True (and enviar=True), waits for confirmation.
+            on_success: Callback invoked with the receipt on confirmation.
+            on_failure: Callback invoked with the exception on error.
+            token: "native" for native ARC, "usdc" for ERC-20 USDC.
 
         Returns:
-            Dict com status, dados da transação e hash (se enviada).
+            Dict with status and transaction details.
         """
         if not self._private_key:
-            return {"status": "erro", "error": "Chave privada necessária para assinar transações."}
+            return {"status": "error", "error": "Private key required to sign transactions."}
 
-        destinatario = Web3.to_checksum_address(to)
-        self.log(f"Preparando pagamento de {amount_usdc} USDC → {destinatario}")
+        try:
+            destinatario = Web3.to_checksum_address(to)
+            self.log(f"Preparing {token} payment of {amount_usdc} → {destinatario}")
 
-        # Montar transação
-        nonce = self._w3.eth.get_transaction_count(self._address)
-        tx = {
-            "from": self._address,
-            "to": destinatario,
-            "value": self._w3.to_wei(amount_usdc, "ether"),  # placeholder: USDC nativo
-            "gas": 21_000,
-            "gasPrice": self._w3.eth.gas_price,
-            "nonce": nonce,
-            "chainId": self._w3.eth.chain_id,
-        }
+            if token == "usdc":
+                signed, gas_limit = self._build_usdc_signed_tx(
+                    destinatario, Decimal(str(amount_usdc))
+                )
+                self.log("USDC transfer signed successfully.")
+            else:
+                value_wei = self._w3.to_wei(amount_usdc, "ether")
+                nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
+                tx_base = cast(TxParams, {
+                    "from": self._address,
+                    "to": destinatario,
+                    "value": value_wei,
+                    "nonce": nonce,
+                    "chainId": self._w3.eth.chain_id,
+                })
+                gas_limit = self._estimate_gas(tx_base)
+                tx = cast(TxParams, {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price})
+                signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+                self.log("Transaction signed successfully.")
 
-        # Assinar a transação com a chave privada
-        signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
-        self.log("Transação assinada com sucesso.")
+            if not enviar:
+                return {
+                    "status": "signed",
+                    "token": token,
+                    "from": self._address,
+                    "to": destinatario,
+                    "amount_usdc": amount_usdc,
+                    "gas_limit": gas_limit,
+                    "raw_transaction": signed.raw_transaction.hex(),
+                    "nota": "Transaction signed. Pass enviar=True to broadcast.",
+                }
 
-        if enviar:
-            # Enviar para a rede Arc
             tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
             tx_hash_hex = tx_hash.hex()
-            self.log(f"Transação enviada: {tx_hash_hex}")
-            return {
-                "status": "enviada",
+            self.log(f"Transaction sent: {tx_hash_hex}")
+
+            resultado: dict = {
+                "status": "sent",
+                "token": token,
                 "from": self._address,
                 "to": destinatario,
                 "amount_usdc": amount_usdc,
                 "tx_hash": tx_hash_hex,
             }
 
-        # Modo padrão: retornar transação assinada sem enviar
-        # TODO: remova enviar=False e passe enviar=True para envio real
-        return {
-            "status": "assinada",
-            "from": self._address,
-            "to": destinatario,
-            "amount_usdc": amount_usdc,
-            "raw_transaction": signed.raw_transaction.hex(),
-            "nota": "Transação assinada. Passe enviar=True para enviar à rede.",
-        }
+            if wait_receipt:
+                self.log("Waiting for confirmation...")
+                receipt = self._wait_for_receipt(tx_hash)
+                if receipt:
+                    resultado["status"] = "confirmed" if receipt.get("status") == 1 else "failed"
+                    resultado["receipt"] = receipt
+                    resultado["gas_usado"] = receipt.get("gasUsed")
+                    if on_success and resultado["status"] == "confirmed":
+                        on_success(receipt)
+                else:
+                    resultado["aviso"] = "Timeout waiting for receipt — verify the hash manually."
+
+            return resultado
+
+        except Exception as exc:
+            if on_failure:
+                on_failure(exc)
+            raise
+
+    def execute_batch(self, payments: list[dict]) -> list[dict]:
+        """
+        Execute multiple transfers sequentially with incremental nonces.
+
+        Args:
+            payments: List of dicts with keys 'to', 'amount_usdc', and
+                      optionally 'enviar' (default False).
+
+        Returns:
+            List of results, one per payment.
+        """
+        if not self._private_key:
+            return [{"status": "error", "error": "Private key required."}]
+
+        base_nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
+        resultados = []
+
+        for idx, p in enumerate(payments):
+            destinatario = Web3.to_checksum_address(p["to"])
+            amount = p["amount_usdc"]
+            enviar = p.get("enviar", False)
+            value_wei = self._w3.to_wei(amount, "ether")
+            nonce = base_nonce + idx
+
+            tx_base = {
+                "from": self._address,
+                "to": destinatario,
+                "value": value_wei,
+                "nonce": nonce,
+                "chainId": self._w3.eth.chain_id,
+            }
+            gas_limit = self._estimate_gas(cast(TxParams, tx_base))
+            tx = {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
+
+            signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
+
+            if not enviar:
+                resultados.append(
+                    {
+                        "status": "signed",
+                        "index": idx,
+                        "to": destinatario,
+                        "amount_usdc": amount,
+                        "raw_transaction": signed.raw_transaction.hex(),
+                    }
+                )
+            else:
+                tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+                resultados.append(
+                    {
+                        "status": "sent",
+                        "index": idx,
+                        "to": destinatario,
+                        "amount_usdc": amount,
+                        "tx_hash": tx_hash.hex(),
+                    }
+                )
+
+        return resultados

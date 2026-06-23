@@ -44,7 +44,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Decimal` para todos os valores monetários (nunca `float`)
 - 18 decimais para saldo nativo; 6 decimais para USDC ERC-20
 - `ARC_PRIVATE_KEY` opcional: operações de leitura funcionam sem ela
-- Chain ID: 7777777 | RPC: https://rpc.arc.io/testnet
+- Chain ID: 5042002 | RPC: https://arc-testnet.drpc.org
 
 ---
 

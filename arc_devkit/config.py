@@ -1,4 +1,4 @@
-"""Carregamento e validação de configuração via variáveis de ambiente."""
+"""Configuration loading and validation via environment variables."""
 
 import logging
 import os
@@ -6,36 +6,24 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-# Carregar .env antes de qualquer leitura de os.getenv
 load_dotenv()
 
 
 @dataclass(frozen=True)
 class Settings:
-    """Configurações globais do Arc DevKit, carregadas do ambiente."""
+    """Global Arc DevKit settings loaded from environment."""
 
     anthropic_api_key: str
     arc_rpc_url: str
+    arc_rpc_urls: tuple[str, ...]
     arc_chain_id: int
     arc_private_key: str | None
     log_level: str
-
-
-def _require(name: str) -> str:
-    """Retorna o valor da variável ou levanta erro descritivo."""
-    value = os.getenv(name, "").strip()
-    if not value:
-        raise EnvironmentError(
-            f"\n\n  Variável obrigatória '{name}' não está configurada.\n"
-            f"  Crie um arquivo .env baseado no .env.example e defina {name}.\n"
-            f"  Exemplo: cp .env.example .env\n"
-        )
-    return value
+    anthropic_model: str
 
 
 def _load_settings() -> Settings:
-    """Lê, valida e retorna todas as configurações do ambiente."""
-    # Coletar erros de uma só vez para exibição agrupada
+    """Read, validate, and return all settings from the environment."""
     erros: list[str] = []
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
@@ -48,24 +36,29 @@ def _load_settings() -> Settings:
 
     if erros:
         lista = ", ".join(erros)
-        raise EnvironmentError(
-            f"\n\n  Variáveis obrigatórias não configuradas: {lista}\n"
-            f"  Execute: cp .env.example .env  e preencha os valores.\n"
+        raise OSError(
+            f"\n\n  Required variables not configured: {lista}\n"
+            f"  Run: cp .env.example .env  and fill in the values.\n"
         )
+
+    # Support multiple comma-separated RPCs
+    rpc_urls = tuple(u.strip() for u in rpc_url.split(",") if u.strip())
 
     return Settings(
         anthropic_api_key=api_key,
-        arc_rpc_url=rpc_url,
-        arc_chain_id=int(os.getenv("ARC_CHAIN_ID", "7777777")),
+        arc_rpc_url=rpc_urls[0],  # Primary URL
+        arc_rpc_urls=rpc_urls,
+        arc_chain_id=int(os.getenv("ARC_CHAIN_ID", "5042002")),
         arc_private_key=os.getenv("ARC_PRIVATE_KEY", "").strip() or None,
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
     )
 
 
-# Objeto global — importado por todos os módulos
+# Global singleton — imported by all modules
 settings = _load_settings()
 
-# Configurar logging global com o nível definido no .env
+# Configure global logging with level from .env
 logging.basicConfig(
     level=getattr(logging, settings.log_level, logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

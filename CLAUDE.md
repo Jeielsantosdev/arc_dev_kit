@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Arc DevKit is a developer toolkit for the Arc blockchain (by Circle) — EVM-compatible Layer 1 with USDC as gas token and Malachite consensus (<1s finality). Three modules: Dev Copilot (AI code assistant), Agent Starter Kit (economic agent templates), Tx Debugger (transaction analyzer).
 
-Primary language: **Python 3.11+**. Testnet RPC: `https://rpc.arc.io/testnet`. Chain ID: `7777777`. Claude model: `claude-sonnet-4-6`.
+Primary language: **Python 3.11+**. Testnet RPC: `https://arc-testnet.drpc.org`. Chain ID: `5042002`. Claude model: `claude-sonnet-4-6`.
 
 ## Commands
 
