@@ -35,27 +35,11 @@ export const mdxComponents = {
     />
   ),
   code: ({ className, ...props }: React.HTMLAttributes<HTMLElement>) => {
-    const isBlock = className?.includes('language-')
-    if (isBlock) return <code className={className} {...props} />
-    return (
-      <code
-        className={cn(
-          'font-mono text-[0.875em] text-arc-300 bg-zinc-800/80 rounded px-1.5 py-0.5 border border-zinc-700/50',
-          className
-        )}
-        {...props}
-      />
-    )
+    if (className?.includes('language-')) return <code className={className} {...props} />
+    return <code className={className} {...props} />
   },
   pre: ({ className, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
-    <pre
-      className={cn(
-        'my-5 rounded-xl bg-zinc-900 border border-zinc-700/80 overflow-x-auto text-sm',
-        'shadow-lg shadow-black/30',
-        className
-      )}
-      {...props}
-    />
+    <pre className={className} {...props} />
   ),
   blockquote: ({ className, ...props }: React.HTMLAttributes<HTMLQuoteElement>) => (
     <blockquote
@@ -67,24 +51,18 @@ export const mdxComponents = {
     />
   ),
   table: ({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
-    <div className="my-6 overflow-x-auto rounded-xl border border-zinc-800">
-      <table className={cn('w-full text-sm', className)} {...props} />
+    <div className="my-6 overflow-x-auto">
+      <table className={cn('w-full', className)} {...props} />
     </div>
   ),
   thead: ({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-    <thead className={cn('bg-zinc-900 border-b border-zinc-700', className)} {...props} />
+    <thead className={className} {...props} />
   ),
   th: ({ className, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => (
-    <th
-      className={cn('px-4 py-3 text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider', className)}
-      {...props}
-    />
+    <th className={className} {...props} />
   ),
   td: ({ className, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => (
-    <td
-      className={cn('px-4 py-3 text-zinc-300 border-t border-zinc-800/60', className)}
-      {...props}
-    />
+    <td className={className} {...props} />
   ),
   ul: ({ className, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
     <ul className={cn('my-4 ml-4 space-y-1.5 list-none', className)} {...props} />
