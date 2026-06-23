@@ -5,82 +5,73 @@ section: "Interfaces"
 order: 20
 ---
 
-O Arc DevKit fornece dois entry points de CLI:
+O Arc DevKit expõe um único entry point de CLI: **`arcdevkit`**.
 
-| Comando | Estilo | Uso recomendado |
-|---|---|---|
-| `arc` | Flat, amigável | Uso diário no terminal |
-| `arcdevkit` | Subcomandos agrupados | Scripts e automação |
-
-## arc — comandos rápidos
-
-### Setup
+## Setup
 
 ```bash
-arc init                    # wizard .env interativo
-arc status                  # conexão + info do bloco atual
-arc config list             # todas as variáveis de ambiente
-arc config get CHAVE        # ler uma variável específica
-arc config set CHAVE VALOR  # escrever uma variável
+arcdevkit init                    # wizard .env interativo
+arcdevkit status                  # conexão + info do bloco atual
+arcdevkit config list             # todas as variáveis de ambiente
+arcdevkit config get CHAVE        # ler uma variável específica
+arcdevkit config set CHAVE VALOR  # escrever uma variável
 ```
 
-### Carteira
+## Carteira
 
 ```bash
-arc wallet create                        # gerar nova carteira
-arc wallet balance --address 0x...      # checar saldo
+arcdevkit wallet create                      # gerar nova carteira
+arcdevkit wallet balance --address 0x...    # checar saldo
 ```
 
-### AI Copilot
+## AI Copilot
 
 ```bash
-arc ask "O que é o Malachite consensus?"
-arc ask --stream "Escreva um contrato USDC vault"
-arc ask --json "..."                     # saída em JSON
+arcdevkit ask "O que é o Malachite consensus?"
+arcdevkit ask --stream "Escreva um contrato USDC vault"
+arcdevkit ask --json "..."                   # saída em JSON
 ```
 
-### Debug de transações
+## Debug de transações
 
 ```bash
-arc debug tx 0xHash
-arc debug tx 0xHash --abi Contrato.json
-arc history                              # sessões recentes
-arc history --limit 50
+arcdevkit debug tx 0xHash
+arcdevkit debug tx 0xHash --abi Contrato.json
+arcdevkit debug-batch hashes.txt            # analisar múltiplas txs
+arcdevkit history                            # sessões recentes
+arcdevkit history --limit 50
 ```
 
-### Portfolio
+## Portfolio
 
 ```bash
-arc portfolio analyze 0xCarteira
-arc portfolio report wallets.json
+arcdevkit portfolio analyze 0xCarteira
+arcdevkit portfolio report wallets.json
 ```
 
-### Flags globais
+## Pagamentos
+
+```bash
+arcdevkit send --to 0x... --amount 5.0 --token usdc
+arcdevkit send --to 0x... --amount 1.0 --token native
+```
+
+## Flags globais
 
 Funcionam em qualquer comando:
 
 ```bash
-arc --json <cmd>    # saída legível por máquina (JSON)
-arc -v <cmd>        # verbose (nível DEBUG de logging)
-```
-
-## arcdevkit — estilo agrupado
-
-```bash
-arcdevkit status
-arcdevkit copilot ask "..."
-arcdevkit agent wallet create
-arcdevkit agent pay --to 0x... --amount 10
-arcdevkit debug tx 0xHash
+arcdevkit --json <cmd>    # saída legível por máquina (JSON)
+arcdevkit -v <cmd>        # verbose (nível DEBUG de logging)
 ```
 
 ## Ajuda
 
 ```bash
-arc --help
-arc ask --help
-arc debug --help
 arcdevkit --help
+arcdevkit ask --help
+arcdevkit debug --help
+arcdevkit wallet --help
 ```
 
 ## Saída JSON
@@ -88,9 +79,9 @@ arcdevkit --help
 Todos os comandos suportam `--json` para integração com scripts:
 
 ```bash
-arc status --json
+arcdevkit status --json
 # {"connected": true, "chain_id": 5042002, "block": 4821903, ...}
 
-arc wallet balance --address 0x... --json
+arcdevkit wallet balance --address 0x... --json
 # {"native": "1.5", "usdc": "10.000000"}
 ```
