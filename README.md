@@ -1,9 +1,11 @@
 # Arc DevKit
 
+[![PyPI version](https://img.shields.io/pypi/v/arc-devkit.svg)](https://pypi.org/project/arc-devkit/)
+[![CI](https://github.com/Jeielsantosdev/arc-devkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeielsantosdev/arc-devkit/actions)
+[![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)](https://github.com/Jeielsantosdev/arc-devkit)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Testnet](https://img.shields.io/badge/arc-testnet-orange.svg)](https://arc.io)
-[![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)]()
 
 **Arc DevKit** is a Python toolkit for developers building applications on the **Arc blockchain** — Circle's Layer 1 with USDC as the gas token and sub-second finality.
 
