@@ -1,0 +1,118 @@
+---
+title: "Monitor Agent"
+description: "Monitora carteiras em tempo real para mudanças de saldo e eventos ERC-20."
+section: "Módulos"
+order: 12
+---
+
+O `MonitorAgent` observa uma ou mais carteiras continuamente, disparando callbacks para mudanças de saldo nativo e eventos `Transfer` ERC-20 (USDC).
+
+## Importação
+
+```python
+from arc_devkit.agents.monitor_agent import MonitorAgent
+```
+
+## Uso básico
+
+```python
+monitor = MonitorAgent(
+    watched_addresses=["0xWallet1", "0xWallet2"],
+    interval_seconds=15,
+)
+
+def on_event(event):
+    print(f"[{event['type']}] {event['address']}: {event['change_wei']} wei")
+
+# Loop bloqueante — roda até stop() ou KeyboardInterrupt
+monitor.execute(callback=on_event)
+```
+
+## Com eventos ERC-20 (USDC) e webhook
+
+```python
+monitor = MonitorAgent(
+    watched_addresses=["0xWallet1"],
+    interval_seconds=15,
+    min_change_wei=10**16,           # ignora mudanças < 0.01 ARC
+    state_file="monitor_state.json", # persiste estado entre reinicializações
+    usdc_contract_address="0xUSDs",  # habilita scan de eventos ERC-20
+    webhook_url="https://myapp.io/hooks/arc",
+)
+```
+
+## Executando em background (thread)
+
+```python
+import threading
+
+t = threading.Thread(
+    target=monitor.execute,
+    kwargs={"callback": on_event},
+    daemon=True,
+)
+t.start()
+
+# Mais tarde...
+monitor.stop()
+```
+
+## Estrutura do evento
+
+```python
+{
+    "event_type": "native",   # "native" | "erc20_transfer" | "ping"
+    "address": "0xWallet",
+    "type": "credit",         # "credit" | "debit"
+    "balance_wei": 1500000000000000000,
+    "change_wei": 500000000000000000,
+}
+```
+
+Para eventos `erc20_transfer`:
+
+```python
+{
+    "event_type": "erc20_transfer",
+    "address": "0xWallet",
+    "type": "credit",
+    "value_atomic": 5000000,    # 5 USDC (6 casas decimais)
+    "tx_hash": "0xabc...",
+}
+```
+
+## Referência da API
+
+### `MonitorAgent(watched_addresses, interval_seconds, ...)`
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `watched_addresses` | `list[str]` | — | Endereços a monitorar |
+| `interval_seconds` | `int` | `15` | Intervalo de polling em segundos |
+| `min_change_wei` | `int` | `0` | Mudança mínima para disparar evento |
+| `state_file` | `str \| None` | `None` | Arquivo JSON para persistir estado |
+| `usdc_contract_address` | `str \| None` | `None` | Endereço do contrato USDC para eventos ERC-20 |
+| `webhook_url` | `str \| None` | `None` | URL para POST de eventos via HTTP |
+
+### `execute(callback)`
+
+Inicia o loop de monitoramento. Bloqueia até `stop()` ou `KeyboardInterrupt`.
+
+### `stop()`
+
+Sinaliza o loop para parar na próxima iteração.
+
+## Features
+
+| Feature | Descrição |
+|---|---|
+| Multi-wallet | Monitora N endereços em uma única instância |
+| Threshold mínimo | Suprime micro-flutuações com `min_change_wei` |
+| Estado persistente | Arquivo JSON mantém cursor entre reinicializações |
+| ERC-20 events | Scan via `eth_getLogs` para eventos Transfer USDC |
+| Webhook HTTP | POST automático do payload do evento para qualquer URL |
+| Retry automático | tenacity em erros de rede |
+
+<Callout type="tip" title="Para FastAPI / async">
+  Use o [AsyncMonitorAgent](/docs/modules/async-monitor) em contextos async — ele nunca bloqueia o event loop.
+</Callout>

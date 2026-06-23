@@ -1,0 +1,96 @@
+---
+title: "CLI Reference"
+description: "Referência completa da interface de linha de comando do Arc DevKit."
+section: "Interfaces"
+order: 20
+---
+
+O Arc DevKit fornece dois entry points de CLI:
+
+| Comando | Estilo | Uso recomendado |
+|---|---|---|
+| `arc` | Flat, amigável | Uso diário no terminal |
+| `arcdevkit` | Subcomandos agrupados | Scripts e automação |
+
+## arc — comandos rápidos
+
+### Setup
+
+```bash
+arc init                    # wizard .env interativo
+arc status                  # conexão + info do bloco atual
+arc config list             # todas as variáveis de ambiente
+arc config get CHAVE        # ler uma variável específica
+arc config set CHAVE VALOR  # escrever uma variável
+```
+
+### Carteira
+
+```bash
+arc wallet create                        # gerar nova carteira
+arc wallet balance --address 0x...      # checar saldo
+```
+
+### AI Copilot
+
+```bash
+arc ask "O que é o Malachite consensus?"
+arc ask --stream "Escreva um contrato USDC vault"
+arc ask --json "..."                     # saída em JSON
+```
+
+### Debug de transações
+
+```bash
+arc debug tx 0xHash
+arc debug tx 0xHash --abi Contrato.json
+arc history                              # sessões recentes
+arc history --limit 50
+```
+
+### Portfolio
+
+```bash
+arc portfolio analyze 0xCarteira
+arc portfolio report wallets.json
+```
+
+### Flags globais
+
+Funcionam em qualquer comando:
+
+```bash
+arc --json <cmd>    # saída legível por máquina (JSON)
+arc -v <cmd>        # verbose (nível DEBUG de logging)
+```
+
+## arcdevkit — estilo agrupado
+
+```bash
+arcdevkit status
+arcdevkit copilot ask "..."
+arcdevkit agent wallet create
+arcdevkit agent pay --to 0x... --amount 10
+arcdevkit debug tx 0xHash
+```
+
+## Ajuda
+
+```bash
+arc --help
+arc ask --help
+arc debug --help
+arcdevkit --help
+```
+
+## Saída JSON
+
+Todos os comandos suportam `--json` para integração com scripts:
+
+```bash
+arc status --json
+# {"connected": true, "chain_id": 5042002, "block": 4821903, ...}
+
+arc wallet balance --address 0x... --json
+# {"native": "1.5", "usdc": "10.000000"}
+```

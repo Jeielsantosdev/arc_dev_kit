@@ -1,0 +1,127 @@
+---
+title: "Instalação"
+description: "Como instalar e configurar o Arc DevKit."
+section: "Início"
+order: 2
+---
+
+## Requisitos
+
+- Python **3.11** ou superior
+- pip / pipenv / uv
+- Uma chave de API Anthropic — [obtenha em console.anthropic.com](https://console.anthropic.com)
+- Acesso ao Arc testnet RPC
+
+## Instalação
+
+```bash
+pip install arc-devkit
+```
+
+Para instalar com dependências de desenvolvimento (pytest, ruff, mypy):
+
+```bash
+pip install arc-devkit[dev]
+```
+
+Ou clone e instale localmente:
+
+```bash
+git clone https://github.com/Jeielsantosdev/arc_dev_kit.git
+cd arc_dev_kit
+pip install -e ".[dev]"
+```
+
+## Configuração
+
+O Arc DevKit lê configurações de variáveis de ambiente ou de um arquivo `.env` na raiz do projeto.
+
+### Wizard interativo
+
+```bash
+arc init
+```
+
+Isso abre um wizard que cria o arquivo `.env` passo a passo.
+
+### Manual
+
+Copie o arquivo de exemplo e preencha suas chaves:
+
+```bash
+cp .env.example .env
+```
+
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-...      # obrigatório
+ARC_RPC_URL=https://arc-testnet.drpc.org  # obrigatório
+
+# Opcionais
+ARC_PRIVATE_KEY=0x...             # para enviar transações
+ANTHROPIC_MODEL=claude-sonnet-4-6
+ARC_CHAIN_ID=5042002
+LOG_LEVEL=INFO
+API_KEY=                          # para autenticar a REST API
+```
+
+<Callout type="warning" title="Segurança">
+  Nunca commit o arquivo `.env` no git. Adicione-o ao `.gitignore`. A chave privada (`ARC_PRIVATE_KEY`) é necessária apenas para operações de escrita.
+</Callout>
+
+## Verificando a conexão
+
+```bash
+arc status
+```
+
+Saída esperada:
+
+```
+Arc testnet: connected ✓
+Chain ID:    5042002
+Latest block: 4821903
+Gas (USDC):  0.000021 USDC/tx
+```
+
+## Primeiros passos
+
+### Perguntar ao Dev Copilot
+
+```bash
+arc ask "Como faço para enviar USDC na Arc testnet?"
+```
+
+### Criar uma carteira
+
+```bash
+arc wallet create
+```
+
+### Verificar saldo
+
+```bash
+arc wallet balance --address 0xSuaCarteira
+```
+
+### Debugar uma transação
+
+```bash
+arc debug tx 0xSeuTxHash
+```
+
+## Variáveis de ambiente
+
+| Variável | Obrigatória | Padrão | Descrição |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | Sim | — | Chave da API Anthropic |
+| `ARC_RPC_URL` | Sim | — | URL do RPC Arc (vírgula para múltiplos) |
+| `ARC_PRIVATE_KEY` | Não | — | Chave privada para transações |
+| `ANTHROPIC_MODEL` | Não | `claude-sonnet-4-6` | Modelo Claude |
+| `ARC_CHAIN_ID` | Não | `5042002` | Chain ID |
+| `LOG_LEVEL` | Não | `INFO` | Nível de log |
+| `API_KEY` | Não | — | Autenticação da REST API |
+
+<Callout type="info" title="Multi-RPC Failover">
+  Você pode passar múltiplas URLs de RPC separadas por vírgula em `ARC_RPC_URL`. O SDK usa fallback automático em caso de falha de rede.
+</Callout>

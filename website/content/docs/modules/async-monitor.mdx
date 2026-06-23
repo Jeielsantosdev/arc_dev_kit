@@ -1,0 +1,109 @@
+---
+title: "Async Monitor"
+description: "Versão async-native do MonitorAgent para uso com FastAPI e WebSocket."
+section: "Módulos"
+order: 13
+---
+
+O `AsyncMonitorAgent` é a versão async do `MonitorAgent`. Usa `asyncio.sleep` e `asyncio.to_thread` internamente — nunca bloqueia o event loop, ideal para FastAPI e handlers WebSocket.
+
+## Importação
+
+```python
+from arc_devkit.agents.async_monitor import AsyncMonitorAgent
+```
+
+## Uso com await
+
+```python
+monitor = AsyncMonitorAgent(
+    watched_address="0xWallet",
+    interval_seconds=10,
+    min_change_wei=0,
+)
+
+async def run():
+    result = await monitor.execute(
+        callback=lambda event: print(event),
+        max_iterations=100,
+    )
+```
+
+## Generator assíncrono
+
+Ideal para handlers WebSocket — itera indefinidamente até `stop()`:
+
+```python
+async def stream_to_websocket(websocket):
+    async for event in monitor.event_stream():
+        await websocket.send_json(event)
+```
+
+## WebSocket via REST API
+
+O Arc DevKit expõe um endpoint WebSocket pronto para uso:
+
+```
+WS /agents/monitor/{address}?interval=15&min_change_wei=0
+```
+
+### Conectando via JavaScript
+
+```javascript
+const ws = new WebSocket(
+  "ws://localhost:8000/agents/monitor/0xYourWallet?interval=10"
+)
+
+ws.onmessage = (e) => {
+  const event = JSON.parse(e.data)
+
+  if (event.event_type === "native") {
+    console.log(`Balance change: ${event.change_wei} wei (${event.type})`)
+  } else if (event.event_type === "erc20_transfer") {
+    console.log(`USDC ${event.type}: ${event.value_atomic} atomic units`)
+  }
+  // event_type === "ping" → heartbeat, sem ação necessária
+}
+```
+
+## Referência da API
+
+### `AsyncMonitorAgent(watched_address, interval_seconds, min_change_wei)`
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `watched_address` | `str` | — | Endereço a monitorar |
+| `interval_seconds` | `int` | `10` | Intervalo entre polls |
+| `min_change_wei` | `int` | `0` | Mudança mínima para emitir evento |
+
+### `execute(callback, max_iterations=None)`
+
+Executa o loop de polling assíncrono.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `callback` | `callable` | Função sync ou async chamada em cada evento |
+| `max_iterations` | `int \| None` | Limite de iterações (`None` = infinito) |
+
+### `event_stream()`
+
+**Retorna:** `AsyncGenerator` — gera eventos indefinidamente até `stop()`.
+
+### `stop()`
+
+Sinaliza o loop para parar.
+
+## Estrutura dos eventos WebSocket
+
+| Campo | Descrição |
+|---|---|
+| `event_type` | `"native"`, `"erc20_transfer"` ou `"ping"` |
+| `address` | Endereço monitorado |
+| `type` | `"credit"` ou `"debit"` |
+| `balance_wei` | Saldo atual em wei |
+| `change_wei` | Variação assinada |
+| `tx_hash` | Hash da tx (eventos ERC-20 apenas) |
+
+<Callout type="info" title="Heartbeat">
+  O endpoint WebSocket envia um `{"event_type": "ping"}` a cada ciclo sem eventos. Isso mantém a conexão viva e indica que o monitor está ativo.
+</Callout>

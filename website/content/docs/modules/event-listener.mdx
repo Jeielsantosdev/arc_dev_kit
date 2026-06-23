@@ -1,0 +1,77 @@
+---
+title: "Event Listener"
+description: "Polling de logs on-chain via eth_getLogs com callbacks para qualquer evento."
+section: "Módulos"
+order: 18
+---
+
+O `EventListener` faz polling de logs on-chain usando `eth_getLogs` e dispara callbacks para eventos específicos. Não requer WebSocket RPC — funciona com qualquer endpoint HTTP.
+
+## Importação
+
+```python
+from arc_devkit.events.listener import EventListener
+```
+
+## Uso básico
+
+```python
+listener = EventListener(
+    contract_address="0xUSDCAddress",
+    abi=erc20_abi,
+    from_block="latest",
+)
+
+listener.on("Transfer", lambda evt: print(f"Transfer: {evt['args']}"))
+
+# Loop bloqueante — roda até stop()
+listener.start(poll_interval=5)
+```
+
+## Poll manual (single-shot)
+
+```python
+events = listener.poll()
+for evt in events:
+    print(evt)
+```
+
+## Múltiplos eventos
+
+```python
+listener.on("Transfer", on_transfer)
+listener.on("Approval", on_approval)
+listener.start(poll_interval=10)
+```
+
+## Referência da API
+
+### `EventListener(contract_address, abi, from_block)`
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `contract_address` | `str` | — | Endereço do contrato |
+| `abi` | `list` | — | ABI do contrato |
+| `from_block` | `int \| str` | `"latest"` | Bloco inicial para escaneamento |
+
+### `on(event_name, callback)`
+
+Registra um callback para um tipo de evento.
+
+### `start(poll_interval=5)`
+
+Inicia o loop de polling bloqueante.
+
+### `stop()`
+
+Sinaliza o loop para parar.
+
+### `poll()`
+
+Faz uma única consulta `eth_getLogs` e retorna eventos encontrados.
+
+**Retorna:** `list[dict]` — eventos com `args`, `blockNumber`, `transactionHash`, etc.
+
+<Callout type="info" title="from_block avança automaticamente">
+  Após cada poll, o `from_block` é atualizado para o último bloco visto + 1, evitando duplicatas.
+</Callout>

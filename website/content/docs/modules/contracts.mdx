@@ -1,0 +1,90 @@
+---
+title: "Contracts"
+description: "Utilitários de baixo nível para interagir com contratos EVM na Arc."
+section: "Módulos"
+order: 17
+---
+
+`arc_devkit.contracts.loader` fornece funções utilitárias para carregar ABIs, fazer chamadas view, enviar transações e decodificar eventos de qualquer contrato EVM na Arc.
+
+## Importação
+
+```python
+from arc_devkit.contracts.loader import (
+    load_abi,
+    call_view,
+    send_tx,
+    decode_events,
+)
+```
+
+## Carregando um ABI
+
+Suporta tanto o formato `{"abi": [...]}` quanto o array raw `[...]`:
+
+```python
+abi = load_abi("MyContract.abi.json")
+```
+
+## Chamadas read-only (eth_call)
+
+```python
+# Sem argumentos
+result = call_view(abi, "0xContractAddress", "totalSupply")
+
+# Com argumentos
+result = call_view(abi, "0xContractAddress", "balanceOf", "0xWallet")
+```
+
+## Enviando transações
+
+```python
+tx_hash = send_tx(
+    abi,
+    "0xContractAddress",
+    "transfer",
+    "0xRecipient",        # argumento 1 da função
+    1_000_000,            # argumento 2 da função (1 USDC)
+    private_key="0xKey",
+)
+```
+
+## Decodificando eventos
+
+```python
+# Após enviar uma tx e obter o receipt
+events = decode_events(receipt, abi, "Transfer", "0xContractAddress")
+
+for evt in events:
+    print(evt["args"])
+    # {'from': '0x...', 'to': '0x...', 'value': 1000000}
+```
+
+## Referência da API
+
+### `load_abi(path)`
+
+**Retorna:** `list` — array de entradas ABI.
+
+### `call_view(abi, address, function_name, *args)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `abi` | `list` | ABI do contrato |
+| `address` | `str` | Endereço do contrato |
+| `function_name` | `str` | Nome da função view |
+| `*args` | `Any` | Argumentos posicionais |
+
+**Retorna:** valor de retorno da função.
+
+### `send_tx(abi, address, function_name, *args, private_key)`
+
+**Retorna:** `str` — hash da transação.
+
+### `decode_events(receipt, abi, event_name, address)`
+
+**Retorna:** `list[dict]` — eventos decodificados com `args`.
+
+<Callout type="tip" title="Para operações mais complexas">
+  Para deploy de contratos, use o [ContractDeployer](/docs/modules/contract-deployer). Para monitoramento contínuo de eventos, use o [EventListener](/docs/modules/event-listener).
+</Callout>

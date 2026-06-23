@@ -1,0 +1,81 @@
+---
+title: "USDC Token"
+description: "Wrapper ERC-20 para o contrato USDC na Arc blockchain."
+section: "Módulos"
+order: 16
+---
+
+O `USDCToken` é um wrapper ERC-20 de alto nível para o contrato USDC na Arc. Todos os valores usam `Decimal` com 6 casas decimais.
+
+## Importação
+
+```python
+from arc_devkit.usdc.token import USDCToken
+from decimal import Decimal
+```
+
+## Operações de leitura
+
+```python
+usdc = USDCToken(contract_address="0xUSDCContractAddress")
+
+# Saldo de uma carteira
+balance = usdc.balance("0xWalletAddress")
+print(balance)  # Decimal("10.500000")
+
+# Allowance
+allowance = usdc.allowance("0xOwner", "0xSpender")
+print(allowance)  # Decimal("100.000000")
+```
+
+## Operações de escrita (requer chave privada)
+
+```python
+# Transfer
+tx_hash = usdc.transfer(
+    to="0xRecipient",
+    amount=Decimal("5.0"),
+    private_key="0xPrivateKey",
+)
+
+# Approve
+tx_hash = usdc.approve(
+    spender="0xSpender",
+    amount=Decimal("50.0"),
+    private_key="0xPrivateKey",
+)
+```
+
+## Referência da API
+
+### `USDCToken(contract_address)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `contract_address` | `str` | Endereço do contrato USDC na Arc |
+
+### `balance(address)`
+
+**Retorna:** `Decimal` — saldo em USDC (6 casas decimais).
+
+### `allowance(owner, spender)`
+
+**Retorna:** `Decimal` — allowance aprovado.
+
+### `transfer(to, amount, private_key)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | `str` | Endereço destinatário |
+| `amount` | `Decimal` | Valor a transferir |
+| `private_key` | `str` | Chave privada do remetente |
+
+**Retorna:** `str` — hash da transação.
+
+### `approve(spender, amount, private_key)`
+
+**Retorna:** `str` — hash da transação.
+
+<Callout type="warning" title="Decimais USDC">
+  USDC usa 6 casas decimais (1 USDC = 1.000.000 unidades atômicas). O `USDCToken` faz a conversão automaticamente, mas se você trabalhar com valores atômicos diretamente, divida por `10**6`.
+</Callout>

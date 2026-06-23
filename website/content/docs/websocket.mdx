@@ -1,0 +1,140 @@
+---
+title: "WebSocket"
+description: "Monitoramento em tempo real via WebSocket — eventos de saldo e ERC-20."
+section: "Interfaces"
+order: 22
+---
+
+O Arc DevKit expõe um endpoint WebSocket para monitoramento de carteiras em tempo real, sem necessidade de polling no cliente.
+
+## Endpoint
+
+```
+WS /agents/monitor/{address}
+```
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `interval` | `int` | `15` | Intervalo de polling em segundos |
+| `min_change_wei` | `int` | `0` | Variação mínima para emitir evento |
+
+## Conectando
+
+### JavaScript (browser)
+
+```javascript
+const ws = new WebSocket(
+  "ws://localhost:8000/agents/monitor/0xSuaCarteira?interval=10"
+)
+
+ws.onopen = () => console.log("Conectado ao monitor Arc")
+
+ws.onmessage = (e) => {
+  const event = JSON.parse(e.data)
+
+  switch (event.event_type) {
+    case "native":
+      console.log(`Saldo nativo: ${event.type} ${event.change_wei} wei`)
+      break
+    case "erc20_transfer":
+      console.log(`USDC ${event.type}: ${event.value_atomic} unidades`)
+      break
+    case "ping":
+      // heartbeat — sem ação necessária
+      break
+  }
+}
+
+ws.onclose = () => console.log("Desconectado")
+```
+
+### Python (websockets)
+
+```python
+import asyncio
+import websockets
+import json
+
+async def monitor():
+    uri = "ws://localhost:8000/agents/monitor/0xSuaCarteira?interval=10"
+    async with websockets.connect(uri) as ws:
+        async for message in ws:
+            event = json.loads(message)
+            if event["event_type"] != "ping":
+                print(event)
+
+asyncio.run(monitor())
+```
+
+### CLI (websocat)
+
+```bash
+websocat "ws://localhost:8000/agents/monitor/0xSuaCarteira?interval=10"
+```
+
+## Estrutura dos eventos
+
+### Evento nativo (ARC)
+
+```json
+{
+  "event_type": "native",
+  "address": "0xSuaCarteira",
+  "type": "credit",
+  "balance_wei": 1500000000000000000,
+  "change_wei": 500000000000000000
+}
+```
+
+### Evento ERC-20 (USDC)
+
+```json
+{
+  "event_type": "erc20_transfer",
+  "address": "0xSuaCarteira",
+  "type": "debit",
+  "value_atomic": 5000000,
+  "tx_hash": "0xabc..."
+}
+```
+
+### Heartbeat
+
+```json
+{
+  "event_type": "ping"
+}
+```
+
+## React hook de exemplo
+
+```tsx
+import { useEffect, useState } from "react"
+
+function useArcMonitor(address: string) {
+  const [events, setEvents] = useState<object[]>([])
+
+  useEffect(() => {
+    const ws = new WebSocket(
+      `ws://localhost:8000/agents/monitor/${address}?interval=10`
+    )
+
+    ws.onmessage = (e) => {
+      const event = JSON.parse(e.data)
+      if (event.event_type !== "ping") {
+        setEvents((prev) => [event, ...prev].slice(0, 50))
+      }
+    }
+
+    return () => ws.close()
+  }, [address])
+
+  return events
+}
+```
+
+<Callout type="info" title="Heartbeat a cada ciclo">
+  O evento `ping` é enviado a cada ciclo de polling mesmo sem mudanças. Use-o para detectar desconexões e implementar reconexão automática no cliente.
+</Callout>

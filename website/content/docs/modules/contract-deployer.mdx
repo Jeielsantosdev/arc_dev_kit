@@ -1,0 +1,75 @@
+---
+title: "Contract Deployer"
+description: "Deploy de contratos EVM a partir de ABI+bytecode ou fonte Solidity."
+section: "Módulos"
+order: 19
+---
+
+O `ContractDeployer` faz deploy de contratos na Arc blockchain a partir de ABI+bytecode pré-compilados ou diretamente de um arquivo `.sol`.
+
+## Importação
+
+```python
+from arc_devkit.deploy.deployer import ContractDeployer
+```
+
+## Deploy de ABI + bytecode
+
+```python
+deployer = ContractDeployer(private_key="0xKey")
+
+address = deployer.deploy(
+    abi=abi,
+    bytecode="0x608060405234801561001057600080fd5...",
+    constructor_args=[],
+)
+print(f"Deployed at: {address}")
+```
+
+## Deploy de Solidity source
+
+Requer `solc` ou `py-solc-x` instalado:
+
+```bash
+pip install py-solc-x
+```
+
+```python
+address = deployer.deploy_source(
+    source_file="MyToken.sol",
+    contract_name="MyToken",
+    constructor_args=["My Token", "MTK", 18],
+)
+```
+
+## Referência da API
+
+### `ContractDeployer(private_key)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `private_key` | `str` | Chave privada do deployer |
+
+### `deploy(abi, bytecode, constructor_args)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `abi` | `list` | ABI do contrato |
+| `bytecode` | `str` | Bytecode compilado (hex) |
+| `constructor_args` | `list` | Argumentos do constructor |
+
+**Retorna:** `str` — endereço do contrato deployado.
+
+### `deploy_source(source_file, contract_name, constructor_args)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `source_file` | `str` | Caminho para o arquivo `.sol` |
+| `contract_name` | `str` | Nome do contrato no arquivo Solidity |
+| `constructor_args` | `list` | Argumentos do constructor |
+
+**Retorna:** `str` — endereço do contrato deployado.
+
+<Callout type="warning" title="py-solc-x para deploy_source">
+  O método `deploy_source` requer `py-solc-x` instalado e um compilador `solc` disponível. Para ambientes de produção, prefira `deploy()` com bytecode pré-compilado via Hardhat ou Foundry.
+</Callout>
