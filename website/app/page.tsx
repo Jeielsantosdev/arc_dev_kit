@@ -9,7 +9,6 @@ import {
   Terminal,
   Layers,
   ArrowRight,
-  Copy,
   ChevronRight,
 } from 'lucide-react'
 
@@ -58,15 +57,6 @@ const MODULES = [
   },
 ]
 
-const QUICK_START = `# Instale o Arc DevKit
-pip install arc-devkit
-
-# Configure as variáveis de ambiente
-export ANTHROPIC_API_KEY="sua-chave"
-export ARC_RPC_URL="https://arc-testnet.drpc.org"
-
-# Verifique a conexão
-arc status`
 
 export default function Home() {
   return (
@@ -131,10 +121,10 @@ export default function Home() {
                   <span className="text-arc-300">pip install</span>
                   <span className="text-white"> arc-devkit</span>{'\n\n'}
                   <span className="text-zinc-500"># Ask the AI Copilot</span>{'\n'}
-                  <span className="text-arc-300">arc ask</span>
+                  <span className="text-arc-300">arcdevkit ask</span>
                   <span className="text-green-300"> "How do I deploy on Arc testnet?"</span>{'\n\n'}
                   <span className="text-zinc-500"># Debug a transaction</span>{'\n'}
-                  <span className="text-arc-300">arc debug tx</span>
+                  <span className="text-arc-300">arcdevkit debug tx</span>
                   <span className="text-yellow-300"> 0xYourTxHash</span>
                 </code>
               </pre>
