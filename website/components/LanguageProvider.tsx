@@ -2,17 +2,16 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { setLanguage } from '@/lib/actions'
 import type { Locale } from '@/lib/i18n'
 
 interface LanguageContextValue {
   lang: Locale
-  setLang: (l: Locale) => Promise<void>
+  setLang: (l: Locale) => void
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
   lang: 'pt',
-  setLang: async () => {},
+  setLang: () => {},
 })
 
 export function LanguageProvider({
@@ -26,9 +25,9 @@ export function LanguageProvider({
   const router = useRouter()
 
   const setLang = useCallback(
-    async (l: Locale) => {
+    (l: Locale) => {
+      document.cookie = `arc-lang=${l}; path=/; max-age=${60 * 60 * 24 * 365}`
       setLangState(l)
-      await setLanguage(l)
       router.refresh()
     },
     [router]
