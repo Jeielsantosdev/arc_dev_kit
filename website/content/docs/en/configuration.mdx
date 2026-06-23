@@ -1,0 +1,78 @@
+---
+title: "Configuration"
+description: "How the Arc DevKit configuration system works."
+section: "Start"
+order: 3
+---
+
+## How it works
+
+The `arc_devkit/config.py` module is the central configuration point. It:
+
+1. Loads the `.env` file via `python-dotenv` at import time
+2. Validates that `ANTHROPIC_API_KEY` and `ARC_RPC_URL` are present
+3. Exposes a `settings` singleton importable by all modules
+
+```python
+from arc_devkit.config import settings
+
+print(settings.arc_rpc_url)       # https://arc-testnet.drpc.org
+print(settings.arc_chain_id)      # 5042002
+print(settings.anthropic_model)   # claude-sonnet-4-6
+```
+
+<Callout type="warning" title="Import-time error">
+  If `ANTHROPIC_API_KEY` or `ARC_RPC_URL` are not defined, `config.py` raises `EnvironmentError` immediately when imported.
+  In tests, set the variables before importing any `arc_devkit` module.
+</Callout>
+
+## Settings dataclass
+
+| Attribute | Env var | Type | Default |
+|---|---|---|---|
+| `anthropic_api_key` | `ANTHROPIC_API_KEY` | `str` | — |
+| `arc_rpc_url` | `ARC_RPC_URL` | `str` | — |
+| `arc_private_key` | `ARC_PRIVATE_KEY` | `str \| None` | `None` |
+| `anthropic_model` | `ANTHROPIC_MODEL` | `str` | `claude-sonnet-4-6` |
+| `arc_chain_id` | `ARC_CHAIN_ID` | `int` | `5042002` |
+| `log_level` | `LOG_LEVEL` | `str` | `INFO` |
+| `api_key` | `API_KEY` | `str \| None` | `None` |
+
+## Configuring in tests
+
+`conftest.py` sets variables before any package import:
+
+```python
+# tests/conftest.py
+import os
+
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
+os.environ.setdefault("ARC_RPC_URL", "https://arc-testnet.drpc.org")
+```
+
+Integration tests (that make real network calls) are marked with `@pytest.mark.integration` and skipped by default:
+
+```bash
+# Run only unit tests (default)
+pytest
+
+# Run integration tests (requires real keys)
+pytest -m integration
+```
+
+## Web3 connection
+
+`core/connection.py` creates a web3 instance with the middleware required for the Arc testnet:
+
+```python
+from arc_devkit.core.connection import get_web3
+
+w3 = get_web3()
+print(w3.eth.chain_id)  # 5042002
+```
+
+`ExtraDataToPOAMiddleware` is injected automatically — required for proof-of-authority chains like the Arc testnet.
+
+<Callout type="tip" title="get_web3() is not cached">
+  The `get_web3()` function creates a new instance on every call. This avoids state issues in multi-threaded environments, but you can cache locally if you need performance.
+</Callout>

@@ -1,0 +1,118 @@
+---
+title: "Payment Agent"
+description: "Signs and broadcasts native and USDC ERC-20 payments on the Arc blockchain."
+section: "Modules"
+order: 11
+---
+
+`PaymentAgent` manages payments on the Arc blockchain — supports native (ARC) and USDC ERC-20 transfers, with automatic gas estimation, dry run, batch and retry.
+
+## Import
+
+```python
+from arc_devkit.agents.payment_agent import PaymentAgent
+import os
+```
+
+## Native payment (ARC)
+
+```python
+agent = PaymentAgent(private_key=os.environ["ARC_PRIVATE_KEY"])
+
+result = agent.execute(
+    to="0xRecipientAddress",
+    amount_usdc=1.5,
+    enviar=True,
+    token="native",
+)
+print(result["tx_hash"])
+```
+
+## USDC ERC-20 payment
+
+```python
+result = agent.execute(
+    to="0xRecipientAddress",
+    amount_usdc=10.0,
+    enviar=True,
+    token="usdc",
+)
+```
+
+## Dry run (no broadcast)
+
+Simulates the transaction and returns the signed data without broadcasting:
+
+```python
+result = agent.execute(
+    to="0xAddr",
+    amount_usdc=5.0,
+    enviar=False,
+)
+print(result["raw_transaction"])
+```
+
+## Batch payments
+
+Sequential execution with automatically incremented nonce:
+
+```python
+payments = [
+    {"to": "0xAddr1", "amount_usdc": 1.0},
+    {"to": "0xAddr2", "amount_usdc": 2.0},
+    {"to": "0xAddr3", "amount_usdc": 0.5},
+]
+results = agent.execute_batch(payments, enviar=True)
+```
+
+## Success and failure callbacks
+
+```python
+agent.execute(
+    to="0xAddr",
+    amount_usdc=5.0,
+    enviar=True,
+    on_success=lambda r: print(f"Confirmed: {r['transactionHash'].hex()}"),
+    on_failure=lambda e: print(f"Failed: {e}"),
+)
+```
+
+## API Reference
+
+### `PaymentAgent(private_key=None)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `private_key` | `str \| None` | Private key. Falls back to `ARC_PRIVATE_KEY`. `None` = read-only |
+
+### `execute(to, amount_usdc, enviar, token, on_success, on_failure)`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `to` | `str` | — | Recipient address |
+| `amount_usdc` | `float` | — | Amount to transfer |
+| `enviar` | `bool` | — | `True` to broadcast, `False` for dry run |
+| `token` | `str` | `"usdc"` | `"usdc"` or `"native"` |
+| `on_success` | `callable \| None` | `None` | Callback with receipt |
+| `on_failure` | `callable \| None` | `None` | Callback with exception |
+
+### `execute_batch(payments, enviar)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `payments` | `list[dict]` | List of `{to, amount_usdc}` |
+| `enviar` | `bool` | `True` to broadcast |
+
+## Automatic features
+
+| Feature | Behavior |
+|---|---|
+| Gas estimation | `eth_estimateGas` with fallback of 21,000 |
+| Simulation | `eth_call` before broadcast to detect reverts |
+| Receipt wait | Waits for confirmation (120s timeout, configurable) |
+| Retry | 3 attempts with exponential backoff (tenacity) |
+| Multi-RPC | Automatic failover between multiple RPC URLs |
+
+<Callout type="warning" title="USDC vs native decimals">
+  Arc DevKit uses `Decimal` internally for all monetary values. Never use `float` to represent USDC balances (6 decimals) or native balances (18 decimals) in production.
+</Callout>

@@ -1,0 +1,109 @@
+---
+title: "REST API"
+description: "FastAPI server with Swagger, authentication, rate limiting and SSE streaming."
+section: "Interfaces"
+order: 21
+---
+
+Arc DevKit includes a full FastAPI server with Swagger UI, API key authentication, rate limiting and real-time streaming.
+
+## Starting the server
+
+```bash
+uvicorn arc_devkit.api.main:app --reload
+```
+
+- Swagger UI → `http://localhost:8000/docs`
+- ReDoc → `http://localhost:8000/redoc`
+
+### Via Docker
+
+```bash
+docker compose up
+```
+
+## Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/copilot/ask` | Ask Dev Copilot |
+| `POST` | `/copilot/ask/stream` | SSE response (token by token) |
+| `GET` | `/agents/balance/{address}` | Wallet balance |
+| `POST` | `/agents/wallet` | Create new wallet |
+| `POST` | `/agents/payment` | Execute payment |
+| `GET` | `/agents/block` | Current block + chain ID |
+| `WS` | `/agents/monitor/{address}` | Real-time events (WebSocket) |
+| `GET` | `/debug/tx/{hash}` | Analyze transaction |
+| `GET` | `/debug/history` | Paginated history |
+| `GET` | `/health` | Health check + RPC |
+
+## Authentication
+
+Set `API_KEY` in environment variables to enable:
+
+```bash
+export API_KEY="your-secret-key"
+```
+
+Pass it on every request via header:
+
+```bash
+curl -H "X-API-Key: your-secret-key" http://localhost:8000/health
+```
+
+Without `API_KEY` set, authentication is disabled (local development).
+
+## Request examples
+
+### Dev Copilot
+
+```bash
+curl -X POST http://localhost:8000/copilot/ask \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "How do I send USDC on Arc?"}'
+```
+
+### SSE Streaming
+
+```bash
+curl -X POST http://localhost:8000/copilot/ask/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Write a USDC vault contract"}' \
+  --no-buffer
+
+# Stream:
+# data: {"token": "To "}
+# data: {"token": "create "}
+# ...
+# data: {"done": true}
+```
+
+### Balance
+
+```bash
+curl http://localhost:8000/agents/balance/0xYourWallet
+# {"native": "1.5", "usdc": "10.000000", "address": "0x..."}
+```
+
+### Payment
+
+```bash
+curl -X POST http://localhost:8000/agents/payment \
+  -H "Content-Type: application/json" \
+  -d '{"to": "0xDest", "amount_usdc": 5.0, "token": "usdc"}'
+```
+
+### Transaction debug
+
+```bash
+curl http://localhost:8000/debug/tx/0xYourTxHash
+```
+
+## CORS
+
+Pre-configured for:
+- `localhost:3000`
+- `localhost:5173`
+- `localhost:8080`
+
+To add origins, edit `arc_devkit/api/main.py`.

@@ -1,0 +1,184 @@
+---
+title: "Practical Examples"
+description: "Complete examples of real applications using Arc DevKit."
+section: "Guides"
+order: 31
+---
+
+## Automated payment application
+
+Structure of a complete payment bot:
+
+```python
+# payment_bot.py
+import os
+import logging
+from arc_devkit.agents.payment_agent import PaymentAgent
+from arc_devkit.usdc.token import USDCToken
+from arc_devkit.copilot.agent import DevCopilot
+from decimal import Decimal
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+USDC_CONTRACT = os.environ["USDC_CONTRACT_ADDRESS"]
+MY_WALLET = os.environ["MY_WALLET_ADDRESS"]
+
+agent = PaymentAgent()
+usdc = USDCToken(contract_address=USDC_CONTRACT)
+copilot = DevCopilot(offline=True)  # offline in production without AI debug
+
+
+def pay_contributor(address: str, amount: Decimal) -> dict:
+    balance = usdc.balance(MY_WALLET)
+    if balance < amount:
+        raise ValueError(f"Insufficient USDC: {balance} < {amount}")
+
+    log.info(f"Sending {amount} USDC to {address}")
+    return agent.execute(
+        to=address,
+        amount_usdc=float(amount),
+        enviar=True,
+        token="usdc",
+        on_success=lambda r: log.info(f"Confirmed: {r['transactionHash'].hex()}"),
+        on_failure=lambda e: log.error(f"Failed: {e}"),
+    )
+
+
+if __name__ == "__main__":
+    result = pay_contributor("0xContributor", Decimal("25.0"))
+    print(result)
+```
+
+## Real-time monitoring dashboard
+
+Full FastAPI server with WebSocket:
+
+```python
+# dashboard_server.py
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from arc_devkit.agents.async_monitor import AsyncMonitorAgent
+from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+import asyncio
+
+app = FastAPI(title="Arc Wallet Dashboard")
+analyzer = PortfolioAnalyzer()
+
+
+@app.get("/")
+async def root():
+    return HTMLResponse("""
+    <html>
+    <head><title>Arc Monitor</title></head>
+    <body>
+        <h1>Arc Wallet Monitor</h1>
+        <div id="events"></div>
+        <script>
+            const ws = new WebSocket("ws://localhost:8000/monitor/0xYourWallet")
+            ws.onmessage = (e) => {
+                const event = JSON.parse(e.data)
+                if (event.event_type !== "ping") {
+                    const div = document.createElement("div")
+                    div.textContent = JSON.stringify(event)
+                    document.getElementById("events").prepend(div)
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """)
+
+
+@app.get("/portfolio/{address}")
+async def portfolio(address: str):
+    snapshot = analyzer.analyze(address, blocks_back=500)
+    return {
+        "address": snapshot.address,
+        "native": str(snapshot.native_balance),
+        "usdc": str(snapshot.usdc_balance),
+        "activity": snapshot.activity_score,
+        "recent_txs": len(snapshot.recent_txs),
+    }
+
+
+@app.websocket("/monitor/{address}")
+async def monitor(websocket: WebSocket, address: str):
+    await websocket.accept()
+    monitor_agent = AsyncMonitorAgent(
+        watched_address=address,
+        interval_seconds=10,
+    )
+    try:
+        async for event in monitor_agent.event_stream():
+            await websocket.send_json(event)
+    except WebSocketDisconnect:
+        monitor_agent.stop()
+```
+
+## Batch transaction analysis script
+
+```python
+# batch_debug.py
+import sys
+from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python batch_debug.py hashes.txt")
+        sys.exit(1)
+
+    analyzer = TxAnalyzer()
+
+    with open(sys.argv[1]) as f:
+        hashes = [line.strip() for line in f if line.strip()]
+
+    print(f"Analyzing {len(hashes)} transactions...\n")
+
+    for i, tx_hash in enumerate(hashes, 1):
+        print(f"[{i}/{len(hashes)}] {tx_hash}")
+        report = analyzer.analyze(tx_hash)
+        print(report)
+        print("-" * 60)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Monitoring agent with Telegram
+
+```python
+# telegram_monitor.py
+import httpx
+from arc_devkit.agents.monitor_agent import MonitorAgent
+
+BOT_TOKEN = "your_bot_token"
+CHAT_ID = "your_chat_id"
+
+
+def send_telegram(message: str):
+    httpx.post(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+        json={"chat_id": CHAT_ID, "text": message},
+    )
+
+
+def on_event(event):
+    if event["event_type"] == "native":
+        direction = "Received" if event["type"] == "credit" else "Sent"
+        wei = event["change_wei"]
+        arc_value = int(wei) / 10**18
+        send_telegram(
+            f"{direction}: {arc_value:.4f} ARC\n"
+            f"Wallet: {event['address'][:8]}..."
+        )
+
+
+monitor = MonitorAgent(
+    watched_addresses=["0xYourWallet"],
+    interval_seconds=30,
+    webhook_url=None,  # using direct callback
+)
+
+monitor.execute(callback=on_event)
+```

@@ -1,0 +1,127 @@
+---
+title: "Contract Deployer"
+description: "Compiles and deploys Solidity contracts to the Arc testnet."
+section: "Modules"
+order: 19
+---
+
+`ContractDeployer` compiles Solidity sources with `py-solc-x` and broadcasts the deploy transaction to the Arc blockchain. Supports constructor arguments, gas estimation and deployment history.
+
+## Requirements
+
+```bash
+pip install py-solc-x
+```
+
+> `py-solc-x` is not included in Arc DevKit core dependencies — install it separately if you need this module.
+
+## Import
+
+```python
+from arc_devkit.core.contract_deployer import ContractDeployer
+import os
+```
+
+## Deploy from Solidity file
+
+```python
+deployer = ContractDeployer(private_key=os.environ["ARC_PRIVATE_KEY"])
+
+result = deployer.deploy(
+    source_path="contracts/MyToken.sol",
+    contract_name="MyToken",
+    constructor_args=["My Token", "MTK", 18, 1_000_000 * 10**18],
+)
+
+print(f"Contract deployed at: {result.address}")
+print(f"Tx hash: {result.tx_hash}")
+print(f"Gas used: {result.gas_used}")
+```
+
+## Deploy from ABI + bytecode
+
+Useful when you already have compiled artifacts:
+
+```python
+import json
+
+with open("artifacts/MyToken.json") as f:
+    artifact = json.load(f)
+
+result = deployer.deploy_artifact(
+    abi=artifact["abi"],
+    bytecode=artifact["bytecode"],
+    constructor_args=["My Token", "MTK", 18],
+)
+```
+
+## Dry run
+
+Estimates gas without deploying:
+
+```python
+estimate = deployer.estimate_deploy(
+    source_path="contracts/MyToken.sol",
+    contract_name="MyToken",
+    constructor_args=[],
+)
+print(f"Estimated gas: {estimate}")
+```
+
+## Deployment history
+
+All deployments are saved to `~/.arc_devkit/deployments.json`:
+
+```bash
+arcdevkit deploy history              # list recent deployments
+arcdevkit deploy verify 0xContractAddr  # verify on block explorer
+```
+
+## Deploy via CLI
+
+```bash
+# Deploy from file
+arcdevkit deploy contracts/MyToken.sol --contract MyToken --args '["My Token","MTK",18]'
+
+# With specific gas
+arcdevkit deploy contracts/MyToken.sol --gas 500000
+```
+
+## API Reference
+
+### `ContractDeployer(private_key=None, solc_version=None)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `private_key` | `str \| None` | Falls back to `ARC_PRIVATE_KEY` |
+| `solc_version` | `str \| None` | Solidity version (e.g., `"0.8.20"`). Auto-detected from pragma if `None` |
+
+### `deploy(source_path, contract_name, constructor_args=[])` → `DeployResult`
+
+### `deploy_artifact(abi, bytecode, constructor_args=[])` → `DeployResult`
+
+### `estimate_deploy(source_path, contract_name, constructor_args=[])` → `int`
+
+### `DeployResult`
+
+| Field | Type | Description |
+|---|---|---|
+| `address` | `str` | Deployed contract address |
+| `tx_hash` | `str` | Deploy transaction hash |
+| `gas_used` | `int` | Gas consumed |
+| `abi` | `list` | Contract ABI |
+| `bytecode` | `str` | Deployed bytecode |
+
+## Features
+
+| Feature | Description |
+|---|---|
+| Auto-compile | Downloads the correct solc version from pragma |
+| Optimizer | Enabled by default (200 runs) |
+| History | Saved to `~/.arc_devkit/deployments.json` |
+| Dry run | Gas estimation without deploy |
+| Verification | `arcdevkit deploy verify` submits source to block explorer |
+
+<Callout type="info" title="solc and py-solc-x">
+  On first run, `py-solc-x` downloads the `solc` binary automatically. This requires internet access and may take a few seconds. The binary is cached at `~/.solcx/`.
+</Callout>

@@ -1,0 +1,120 @@
+---
+title: "Smart Contracts"
+description: "Low-level interface for interacting with arbitrary contracts on Arc."
+section: "Modules"
+order: 17
+---
+
+`ContractInterface` provides a generic API for calling functions on any contract deployed on the Arc blockchain — read-only calls and state-changing transactions.
+
+## Import
+
+```python
+from arc_devkit.core.contracts import ContractInterface
+import json, os
+```
+
+## Setup
+
+```python
+with open("MyContract.abi.json") as f:
+    abi = json.load(f)
+
+contract = ContractInterface(
+    address="0xContractAddress",
+    abi=abi,
+    private_key=os.environ.get("ARC_PRIVATE_KEY"),
+)
+```
+
+## Read call (view/pure)
+
+```python
+# Call a view function
+result = contract.call("balanceOf", "0xWallet")
+print(result)
+
+# With multiple arguments
+price = contract.call("getPrice", token_address, amount)
+```
+
+## Write transaction
+
+```python
+tx_hash = contract.transact(
+    function_name="deposit",
+    args=[1_000_000],   # 1 USDC in atomic units
+    value_wei=0,
+    gas=100_000,
+)
+```
+
+## payable transaction (sending native)
+
+```python
+tx_hash = contract.transact(
+    function_name="stake",
+    args=[],
+    value_wei=10**18,  # 1 ARC
+)
+```
+
+## Gas estimation
+
+```python
+estimated_gas = contract.estimate_gas("deposit", 1_000_000)
+print(f"Estimated gas: {estimated_gas}")
+```
+
+## Decoding custom errors
+
+```python
+try:
+    contract.transact("withdraw", [500_000])
+except contract.ContractError as e:
+    print(f"Error: {e.name} — args: {e.args}")
+    # → Error: InsufficientBalance — args: (500000, 0)
+```
+
+## API Reference
+
+### `ContractInterface(address, abi, private_key=None)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `address` | `str` | Contract address |
+| `abi` | `list` | Contract ABI (Python list) |
+| `private_key` | `str \| None` | Required for transactions |
+
+### `call(function_name, *args)` → `Any`
+
+Executes a read-only call (`eth_call`). Does not consume gas.
+
+### `transact(function_name, args=[], value_wei=0, gas=None)` → `str`
+
+Sends a transaction and waits for receipt. Returns `tx_hash`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `function_name` | `str` | — | Function to call |
+| `args` | `list` | `[]` | Function arguments |
+| `value_wei` | `int` | `0` | Native value to send (payable) |
+| `gas` | `int \| None` | `None` | Gas limit (auto-estimated if `None`) |
+
+### `estimate_gas(function_name, *args)` → `int`
+
+Returns gas estimate without executing.
+
+### `get_events(event_name, from_block, to_block="latest")` → `list`
+
+Fetches historical events emitted by the contract.
+
+## Features
+
+| Feature | Description |
+|---|---|
+| ABI decode | Decodes return values and event arguments automatically |
+| Custom errors | Decodes custom Solidity errors (not just `require()`) |
+| Auto-gas | Estimates gas with 10% buffer if not explicitly provided |
+| Simulation | `eth_call` before transact to detect revert |
+| Receipt wait | Waits for 1 confirmation (timeout configurable) |
