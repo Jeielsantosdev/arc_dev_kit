@@ -1,0 +1,127 @@
+---
+title: "Installation"
+description: "How to install and configure Arc DevKit."
+section: "Start"
+order: 2
+---
+
+## Requirements
+
+- Python **3.11** or higher
+- pip / pipenv / uv
+- An Anthropic API key — [get one at console.anthropic.com](https://console.anthropic.com)
+- Access to the Arc testnet RPC
+
+## Installation
+
+```bash
+pip install arc-devkit
+```
+
+To install with development dependencies (pytest, ruff, mypy):
+
+```bash
+pip install arc-devkit[dev]
+```
+
+Or clone and install locally:
+
+```bash
+git clone https://github.com/Jeielsantosdev/arc_dev_kit.git
+cd arc_dev_kit
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+Arc DevKit reads configuration from environment variables or a `.env` file in the project root.
+
+### Interactive wizard
+
+```bash
+arcdevkit init
+```
+
+This opens a wizard that creates the `.env` file step by step.
+
+### Manual
+
+Copy the example file and fill in your keys:
+
+```bash
+cp .env.example .env
+```
+
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-...      # required
+ARC_RPC_URL=https://arc-testnet.drpc.org  # required
+
+# Optional
+ARC_PRIVATE_KEY=0x...             # to send transactions
+ANTHROPIC_MODEL=claude-sonnet-4-6
+ARC_CHAIN_ID=5042002
+LOG_LEVEL=INFO
+API_KEY=                          # to authenticate the REST API
+```
+
+<Callout type="warning" title="Security">
+  Never commit the `.env` file to git. Add it to `.gitignore`. The private key (`ARC_PRIVATE_KEY`) is only needed for write operations.
+</Callout>
+
+## Verifying the connection
+
+```bash
+arcdevkit status
+```
+
+Expected output:
+
+```
+Arc testnet: connected ✓
+Chain ID:    5042002
+Latest block: 4821903
+Gas (USDC):  0.000021 USDC/tx
+```
+
+## First steps
+
+### Ask the Dev Copilot
+
+```bash
+arcdevkit ask "How do I send USDC on the Arc testnet?"
+```
+
+### Create a wallet
+
+```bash
+arcdevkit wallet create
+```
+
+### Check balance
+
+```bash
+arcdevkit wallet balance --address 0xYourWallet
+```
+
+### Debug a transaction
+
+```bash
+arcdevkit debug tx 0xYourTxHash
+```
+
+## Environment variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key |
+| `ARC_RPC_URL` | Yes | — | Arc RPC URL (comma-separated for multiple) |
+| `ARC_PRIVATE_KEY` | No | — | Private key for transactions |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-6` | Claude model |
+| `ARC_CHAIN_ID` | No | `5042002` | Chain ID |
+| `LOG_LEVEL` | No | `INFO` | Log level |
+| `API_KEY` | No | — | REST API authentication |
+
+<Callout type="info" title="Multi-RPC Failover">
+  You can pass multiple RPC URLs comma-separated in `ARC_RPC_URL`. The SDK uses automatic failover on network failure.
+</Callout>

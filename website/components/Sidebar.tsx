@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { NAV } from '@/lib/nav'
+import { getNav } from '@/lib/nav'
 import { slugToHref } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { useLanguage } from './LanguageProvider'
+import { i18n, tr } from '@/lib/i18n'
 
 interface SidebarProps {
   open?: boolean
@@ -13,6 +15,8 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const { lang } = useLanguage()
+  const nav = getNav(lang)
 
   return (
     <>
@@ -34,7 +38,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       >
         <nav className="px-3 py-4 pb-16">
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.section}>
               <p className="sidebar-section">{group.section}</p>
               <ul className="space-y-0.5">
@@ -46,10 +50,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       <Link
                         href={href}
                         onClick={onClose}
-                        className={cn(
-                          'sidebar-link',
-                          isActive && 'active'
-                        )}
+                        className={cn('sidebar-link', isActive && 'active')}
                       >
                         {item.title}
                       </Link>
@@ -61,7 +62,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           ))}
 
           <div className="mt-8 mx-3 p-3 rounded-lg bg-arc-500/10 border border-arc-500/20">
-            <p className="text-xs font-medium text-arc-300 mb-1">Arc Testnet</p>
+            <p className="text-xs font-medium text-arc-300 mb-1">
+              {tr(i18n.sidebar.testnet, lang)}
+            </p>
             <p className="text-xs text-zinc-500">Chain ID: 5042002</p>
             <p className="text-xs text-zinc-500 mt-0.5 break-all">arc-testnet.drpc.org</p>
           </div>

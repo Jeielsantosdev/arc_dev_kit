@@ -1,4 +1,7 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
+import type { Locale } from '@/lib/i18n'
+import { LanguageProvider } from '@/components/LanguageProvider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -22,9 +25,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const store = await cookies()
+  const lang = (store.get('arc-lang')?.value ?? 'pt') as Locale
+
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang={lang === 'en' ? 'en' : 'pt-BR'} className="dark">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -33,7 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <LanguageProvider initialLang={lang}>{children}</LanguageProvider>
+      </body>
     </html>
   )
 }

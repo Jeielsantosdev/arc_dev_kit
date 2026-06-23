@@ -1,0 +1,116 @@
+---
+title: "USDC Token"
+description: "ERC-20 interface for USDC on Arc — balance, transfer, approve and allowance."
+section: "Modules"
+order: 16
+---
+
+`USDCToken` wraps the USDC ERC-20 contract on Arc with typed methods for balance queries, transfers, approvals and spend allowances.
+
+## Import
+
+```python
+from arc_devkit.core.usdc_token import USDCToken
+import os
+```
+
+## Balance
+
+```python
+token = USDCToken()
+
+balance = token.balance_of("0xYourWallet")
+print(f"{balance} USDC")   # Decimal with 6 decimal places
+```
+
+## Transfer
+
+```python
+token = USDCToken(private_key=os.environ["ARC_PRIVATE_KEY"])
+
+tx_hash = token.transfer(
+    to="0xRecipient",
+    amount=5.0,   # USDC — converted to atomic units internally
+    dry_run=False,
+)
+print(tx_hash)
+```
+
+## Approve + spend allowance
+
+```python
+# Approve a contract to spend up to 100 USDC
+tx_hash = token.approve(spender="0xContractAddr", amount=100.0)
+
+# Check the current allowance
+allowance = token.allowance(owner="0xOwner", spender="0xContractAddr")
+print(f"Allowed: {allowance} USDC")
+```
+
+## transferFrom
+
+```python
+# Called by the spender contract after approval
+tx_hash = token.transfer_from(
+    from_addr="0xOwner",
+    to="0xRecipient",
+    amount=50.0,
+)
+```
+
+## Contract metadata
+
+```python
+print(token.name())       # "USD Coin"
+print(token.symbol())     # "USDC"
+print(token.decimals())   # 6
+print(token.total_supply())  # Decimal
+```
+
+## API Reference
+
+### `USDCToken(private_key=None, contract_address=None)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `private_key` | `str \| None` | Private key for write operations. Falls back to `ARC_PRIVATE_KEY` |
+| `contract_address` | `str \| None` | USDC contract address. Falls back to `settings.usdc_contract_address` |
+
+### `balance_of(address)` → `Decimal`
+
+Returns USDC balance with 6 decimal places.
+
+### `transfer(to, amount, dry_run=False)` → `str`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `to` | `str` | Recipient address |
+| `amount` | `float \| Decimal` | Amount in USDC |
+| `dry_run` | `bool` | If `True`, simulates without broadcasting |
+
+**Returns:** transaction hash.
+
+### `approve(spender, amount, dry_run=False)` → `str`
+
+Authorizes `spender` to spend `amount` from the signer's wallet.
+
+### `allowance(owner, spender)` → `Decimal`
+
+Returns current allowance.
+
+### `transfer_from(from_addr, to, amount, dry_run=False)` → `str`
+
+Transfers from an account that has approved the signer.
+
+## Notes
+
+| Point | Description |
+|---|---|
+| Decimals | All amounts accept `float` or `Decimal`; internally converted to `int` atomic units (×10⁶) |
+| Precision | Prefer `Decimal` over `float` for production amounts |
+| Read-only | `balance_of`, `allowance`, `name`, `symbol`, `decimals`, `total_supply` work without a private key |
+| Write | `transfer`, `approve`, `transfer_from` require a private key |
+
+<Callout type="warning" title="USDC uses 6 decimals">
+  Unlike native ARC balance (18 decimals), USDC has 6 decimal places. `1 USDC = 1_000_000` atomic units. Arc DevKit converts automatically, but be careful when reading raw values from `eth_call`.
+</Callout>

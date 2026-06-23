@@ -1,22 +1,20 @@
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { MDXRemote } from 'next-mdx-remote/rsc'
-import { getAllDocs, getDocBySlug } from '@/lib/docs'
-import { NAV } from '@/lib/nav'
+import { getDocBySlug } from '@/lib/docs'
+import { getNav } from '@/lib/nav'
 import { mdxComponents, Callout } from '@/components/MDXComponents'
 import { slugToHref } from '@/lib/utils'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
+import type { Locale } from '@/lib/i18n'
+import { i18n, tr } from '@/lib/i18n'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 
 interface Props {
   params: Promise<{ slug: string[] }>
-}
-
-export async function generateStaticParams() {
-  const docs = getAllDocs()
-  return docs.map((doc) => ({ slug: doc.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -29,8 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function getAdjacentDocs(slug: string[]) {
-  const allItems = NAV.flatMap((g) => g.items)
+function getAdjacentDocs(slug: string[], locale: Locale) {
+  const allItems = getNav(locale).flatMap((g) => g.items)
   const currentHref = slugToHref(slug)
   const idx = allItems.findIndex((item) => slugToHref(item.slug) === currentHref)
   return {
@@ -41,10 +39,14 @@ function getAdjacentDocs(slug: string[]) {
 
 export default async function DocPage({ params }: Props) {
   const { slug } = await params
-  const doc = getDocBySlug(slug)
+
+  const store = await cookies()
+  const lang = (store.get('arc-lang')?.value ?? 'pt') as Locale
+
+  const doc = getDocBySlug(slug, lang)
   if (!doc) notFound()
 
-  const { prev, next } = getAdjacentDocs(slug)
+  const { prev, next } = getAdjacentDocs(slug, lang)
 
   return (
     <article>
@@ -86,7 +88,7 @@ export default async function DocPage({ params }: Props) {
                 className="text-zinc-500 group-hover:text-arc-400 transition-colors shrink-0"
               />
               <div className="min-w-0">
-                <p className="text-xs text-zinc-500 mb-0.5">Anterior</p>
+                <p className="text-xs text-zinc-500 mb-0.5">{tr(i18n.doc.prev, lang)}</p>
                 <p className="text-sm font-medium text-white truncate">{prev.title}</p>
               </div>
             </Link>
@@ -101,7 +103,7 @@ export default async function DocPage({ params }: Props) {
                 className="text-zinc-500 group-hover:text-arc-400 transition-colors shrink-0"
               />
               <div className="min-w-0">
-                <p className="text-xs text-zinc-500 mb-0.5">Próximo</p>
+                <p className="text-xs text-zinc-500 mb-0.5">{tr(i18n.doc.next, lang)}</p>
                 <p className="text-sm font-medium text-white truncate">{next.title}</p>
               </div>
             </Link>
