@@ -11,16 +11,16 @@ O `TxAnalyzer` busca dados da transação via RPC, decodifica erros e dados de i
 
 ```bash
 # Analisar uma transação
-arc debug tx 0xSeuTxHash
+arcdevkit debug tx 0xSeuTxHash
 
 # Com ABI para decodificar dados de input
-arc debug tx 0xSeuTxHash --abi ./MeuContrato.abi.json
+arcdevkit debug tx 0xSeuTxHash --abi ./MeuContrato.abi.json
 
 # Analisar batch (um hash por linha)
-arc debug batch hashes.txt
+arcdevkit debug batch hashes.txt
 
 # Ver histórico recente
-arc history
+arcdevkit history
 ```
 
 ## Uso via Python
@@ -76,8 +76,8 @@ Sem parâmetros — lê configurações do `settings` global.
 Todas as análises são salvas automaticamente em `~/.arc_devkit/history.json`:
 
 ```bash
-arc history          # últimas 10 análises
-arc history --limit 50
+arcdevkit history          # últimas 10 análises
+arcdevkit history --limit 50
 ```
 
 ## Features

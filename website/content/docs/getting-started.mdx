@@ -39,7 +39,7 @@ O Arc DevKit lê configurações de variáveis de ambiente ou de um arquivo `.en
 ### Wizard interativo
 
 ```bash
-arc init
+arcdevkit init
 ```
 
 Isso abre um wizard que cria o arquivo `.env` passo a passo.
@@ -72,7 +72,7 @@ API_KEY=                          # para autenticar a REST API
 ## Verificando a conexão
 
 ```bash
-arc status
+arcdevkit status
 ```
 
 Saída esperada:
@@ -89,25 +89,25 @@ Gas (USDC):  0.000021 USDC/tx
 ### Perguntar ao Dev Copilot
 
 ```bash
-arc ask "Como faço para enviar USDC na Arc testnet?"
+arcdevkit ask "Como faço para enviar USDC na Arc testnet?"
 ```
 
 ### Criar uma carteira
 
 ```bash
-arc wallet create
+arcdevkit wallet create
 ```
 
 ### Verificar saldo
 
 ```bash
-arc wallet balance --address 0xSuaCarteira
+arcdevkit wallet balance --address 0xSuaCarteira
 ```
 
 ### Debugar uma transação
 
 ```bash
-arc debug tx 0xSeuTxHash
+arcdevkit debug tx 0xSeuTxHash
 ```
 
 ## Variáveis de ambiente
