@@ -53,13 +53,17 @@ markdown_extensions:
   - md_in_html
 
 nav:
-  - Início: index.md
-  - Guia de Início: getting-started.md
-  - Módulos:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Modules:
     - Dev Copilot: modules/dev-copilot.md
     - Agent Starter Kit: modules/agent-starter-kit.md
     - Tx Debugger: modules/tx-debugger.md
+    - Analytics: modules/analytics.md
   - CLI Guide: cli-guide.md
+  - API Reference: api-reference.md
+  - Cookbook: cookbook.md
+  - Migration Guide: migration-rpc.md
 
 extra:
   social:
