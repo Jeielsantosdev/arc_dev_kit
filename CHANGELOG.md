@@ -6,6 +6,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.2] — 2026-06-25
+
+### Fixed
+
+- Re-release of 0.4.1 fix: PyPI does not allow overwriting existing files; bumped patch to publish corrected `TxAnalyzer` with `rpc_url` support
+
+---
+
 ## [0.4.1] — 2026-06-25
 
 ### Fixed
