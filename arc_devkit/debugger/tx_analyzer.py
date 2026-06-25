@@ -159,8 +159,16 @@ class TxAnalyzer:
         results = analyzer.analyze_batch(["0xHash1...", "0xHash2..."])
     """
 
-    def __init__(self, w3: Web3 | None = None) -> None:
-        self._w3 = w3 or get_web3()
+    def __init__(self, w3: Web3 | None = None, rpc_url: str | None = None) -> None:
+        if w3:
+            self._w3 = w3
+        elif rpc_url:
+            from web3.middleware import ExtraDataToPOAMiddleware
+            _w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 10}))
+            _w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+            self._w3 = _w3
+        else:
+            self._w3 = get_web3()
 
     # ------------------------------------------------------------------
     # Public API

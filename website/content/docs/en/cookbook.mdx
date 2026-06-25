@@ -1,0 +1,176 @@
+---
+title: "Cookbook"
+description: "Practical recipes for common use cases on the Arc blockchain."
+section: "Guides"
+order: 30
+---
+
+Complete, ready-to-use examples for the most common operations.
+
+## Recurring payment agent
+
+Sends USDC to a list of addresses daily:
+
+```python
+import time
+from arc_devkit.agents.payment_agent import PaymentAgent
+
+recipients = [
+    {"to": "0xContributor1", "amount_usdc": 10.0},
+    {"to": "0xContributor2", "amount_usdc": 5.0},
+]
+
+agent = PaymentAgent()  # reads ARC_PRIVATE_KEY from .env
+
+while True:
+    results = agent.execute_batch(recipients, enviar=True)
+    for r in results:
+        if r.get("tx_hash"):
+            print(f"Sent: {r['tx_hash']}")
+    time.sleep(86400)  # 24 hours
+```
+
+## Monitor with console alerts
+
+Monitors a wallet and prints alerts with threshold:
+
+```python
+from arc_devkit.agents.monitor_agent import MonitorAgent
+from decimal import Decimal
+
+monitor = MonitorAgent(
+    watched_addresses=["0xTreasury"],
+    interval_seconds=30,
+    min_change_wei=int(Decimal("0.1") * 10**18),  # only changes >= 0.1 ARC
+)
+
+def alert(event):
+    if event["event_type"] == "native":
+        direction = "UP" if event["type"] == "credit" else "DOWN"
+        wei = event["change_wei"]
+        arc = Decimal(wei) / Decimal(10**18)
+        print(f"{direction} Treasury: {arc:.4f} ARC")
+
+monitor.execute(callback=alert)
+```
+
+## Debug and analyze a reverted transaction
+
+```python
+from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+analyzer = TxAnalyzer()
+report = analyzer.analyze(
+    "0xTxHashHere",
+    abi_path="my_contract.abi.json",
+)
+print(report)
+```
+
+## Check balance before sending
+
+```python
+from arc_devkit.usdc.token import USDCToken
+from arc_devkit.agents.payment_agent import PaymentAgent
+from decimal import Decimal
+
+usdc = USDCToken(contract_address="0xUSDCAddress")
+agent = PaymentAgent()
+
+to_send = Decimal("5.0")
+balance = usdc.balance("0xYourWallet")
+
+if balance >= to_send:
+    result = agent.execute(
+        to="0xDestination",
+        amount_usdc=float(to_send),
+        enviar=True,
+        token="usdc",
+    )
+    print(f"Sent: {result['tx_hash']}")
+else:
+    print(f"Insufficient balance: {balance} USDC")
+```
+
+## Monitor USDC events in real time
+
+```python
+from arc_devkit.events.listener import EventListener
+import json
+
+# Minimal ERC-20 ABI for Transfer event
+erc20_abi = json.load(open("erc20.abi.json"))
+
+listener = EventListener(
+    contract_address="0xUSDCAddress",
+    abi=erc20_abi,
+    from_block="latest",
+)
+
+def on_transfer(event):
+    args = event["args"]
+    value = args["value"] / 10**6  # USDC has 6 decimal places
+    print(f"Transfer: {args['from']} → {args['to']}: {value:.2f} USDC")
+
+listener.on("Transfer", on_transfer)
+listener.start(poll_interval=5)
+```
+
+## FastAPI + WebSocket monitor
+
+```python
+from fastapi import FastAPI, WebSocket
+from arc_devkit.agents.async_monitor import AsyncMonitorAgent
+import asyncio
+
+app = FastAPI()
+
+@app.websocket("/monitor/{address}")
+async def monitor_wallet(websocket: WebSocket, address: str):
+    await websocket.accept()
+    monitor = AsyncMonitorAgent(
+        watched_address=address,
+        interval_seconds=10,
+    )
+
+    async for event in monitor.event_stream():
+        await websocket.send_json(event)
+```
+
+## Portfolio snapshot with AI report
+
+```python
+from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+from arc_devkit.copilot.agent import DevCopilot
+
+analyzer = PortfolioAnalyzer()
+copilot = DevCopilot()
+
+snapshot = analyzer.analyze("0xWallet", blocks_back=500)
+
+summary = f"""
+Address: {snapshot.address}
+Native: {snapshot.native_balance} ARC
+USDC: {snapshot.usdc_balance}
+Activity: {snapshot.activity_score}
+Recent txs: {len(snapshot.recent_txs)}
+"""
+
+analysis = copilot.ask(f"Analyze this Arc wallet portfolio:\n{summary}")
+print(analysis)
+```
+
+## Deploy a simple ERC-20 contract
+
+```python
+from arc_devkit.deploy.deployer import ContractDeployer
+
+deployer = ContractDeployer(private_key="0xKey")
+
+address = deployer.deploy_source(
+    source_file="MyToken.sol",
+    contract_name="MyToken",
+    constructor_args=["My Token", "MTK", 18],
+)
+print(f"Token deployed: {address}")
+```

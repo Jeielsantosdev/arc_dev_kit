@@ -1,0 +1,95 @@
+---
+title: "Tx Debugger"
+description: "Decodifica reverts, analisa transações e gera diagnóstico em linguagem natural."
+section: "Módulos"
+order: 14
+---
+
+O `TxAnalyzer` busca dados da transação via RPC, decodifica erros e dados de input, e usa o `DevCopilot` para gerar um diagnóstico em linguagem natural.
+
+## Uso via CLI
+
+```bash
+# Analisar uma transação
+arcdevkit debug tx 0xSeuTxHash
+
+# Com ABI para decodificar dados de input
+arcdevkit debug tx 0xSeuTxHash --abi ./MeuContrato.abi.json
+
+# Analisar batch (um hash por linha)
+arcdevkit debug batch hashes.txt
+
+# Ver histórico recente
+arcdevkit history
+```
+
+## Uso via Python
+
+```python
+from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+analyzer = TxAnalyzer()
+report = analyzer.analyze("0xSeuTxHash", abi_path="MeuContrato.abi.json")
+print(report)
+```
+
+## Exemplo de saída (transação revertida)
+
+```
+Status:     reverted
+Error:      ERC20: transfer amount exceeds balance
+Gas used:   21,000 / 100,000
+Cost:       0.0008 USDC
+Diagnosis:  The sender wallet did not have enough USDC balance at the time
+            of execution. Call balanceOf() before transfer() to verify.
+Suggestion: Add a pre-check or use a try/catch in your contract.
+```
+
+## Referência da API
+
+### `TxAnalyzer()`
+
+Sem parâmetros — lê configurações do `settings` global.
+
+### `analyze(tx_hash, abi_path=None)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `tx_hash` | `str` | Hash da transação a analisar |
+| `abi_path` | `str \| None` | Caminho para o ABI do contrato (para decodificar input) |
+
+**Retorna:** `str` — relatório completo em texto.
+
+## O que é analisado
+
+| Campo | Origem | Descrição |
+|---|---|---|
+| Status | `eth_getTransactionReceipt` | `success` ou `reverted` |
+| Error | Revert reason | Mensagem `require()` ou erro custom |
+| Gas used | Receipt | Gas consumido vs. limite |
+| Cost (USDC) | Gas price × gas usado | Custo em USDC |
+| Input data | `eth_getTransaction` | Decodificado se ABI fornecido |
+| Diagnosis | DevCopilot | Análise em linguagem natural |
+
+## Histórico
+
+Todas as análises são salvas automaticamente em `~/.arc_devkit/history.json`:
+
+```bash
+arcdevkit history          # últimas 10 análises
+arcdevkit history --limit 50
+```
+
+## Features
+
+| Feature | Descrição |
+|---|---|
+| Revert decode | Decodifica `require()` strings e erros Solidity customizados |
+| ABI decode | Decodifica nome de função + argumentos do input data |
+| AI diagnosis | Chama `DevCopilot.ask()` para explicação em linguagem natural |
+| Histórico | Salvo em `~/.arc_devkit/history.json` automaticamente |
+| Batch | Analisa múltiplas transações de um arquivo texto |
+
+<Callout type="tip" title="Sem ABI?">
+  O debugger funciona sem ABI — ele apenas não conseguirá decodificar o `input data`. O diagnóstico de revert e o relatório de gas funcionam independentemente.
+</Callout>

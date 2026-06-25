@@ -1,0 +1,55 @@
+---
+title: "Introdução"
+description: "O que é o Arc DevKit e por que ele existe."
+section: "Início"
+order: 1
+---
+
+Arc DevKit é um toolkit Python completo para desenvolvedores que constroem na **blockchain Arc** — a Layer 1 EVM-compatível da Circle, onde USDC é o token de gas e a finalidade de blocos é sub-segundo graças ao consenso Malachite.
+
+## O que é Arc?
+
+**Arc** é uma L1 blockchain criada pela Circle (criadores do USDC), projetada especificamente para pagamentos programáveis e agentes econômicos autônomos.
+
+| Característica | Detalhe |
+|---|---|
+| **EVM-compatível** | Solidity, web3.py e ethers.js funcionam sem modificação |
+| **USDC como gas** | Nenhum ETH necessário — todas as taxas são pagas em USDC |
+| **Malachite consensus** | Finalidade de bloco sub-segundo |
+| **Circle Agent Stack** | Infraestrutura nativa para agentes IA econômicos |
+| **Chain ID** | `5042002` · Testnet RPC: `https://arc-testnet.drpc.org` |
+
+## Por que Arc DevKit?
+
+Construir na Arc expõe você a uma série de fricções práticas que o Arc DevKit resolve:
+
+- **Gas em USDC**: diferente de outras EVMs, você precisa calcular e gerenciar taxas em USDC (6 casas decimais), não em ETH (18 casas)
+- **PoA Middleware**: a Arc testnet usa proof-of-authority e exige `ExtraDataToPOAMiddleware` no web3.py
+- **Agentes econômicos**: a Arc foi projetada para agentes IA — o DevKit oferece base classes prontas
+- **Debugging complexo**: transações revertidas na EVM têm mensagens de erro codificadas; o DevKit decodifica e explica em linguagem natural via IA
+
+## Módulos
+
+```
+arc_devkit/
+├── copilot/         Dev Copilot — IA com contexto Arc embutido
+├── agents/          Payment Agent, Monitor Agent, Async Monitor
+├── debugger/        Tx Debugger — decodifica e analisa transações
+├── analytics/       Portfolio Analyzer — saldo, histórico, score
+├── usdc/            USDCToken — ERC-20 wrapper
+├── contracts/       Utilitários para contratos EVM
+├── events/          Event Listener — polling de logs on-chain
+├── deploy/          Contract Deployer
+├── api/             FastAPI server com SSE e WebSocket
+└── cli/             CLI `arc` e `arcdevkit`
+```
+
+## Requisitos
+
+- Python **3.11+**
+- Chave de API da Anthropic (para módulos com IA)
+- URL de RPC do Arc (testnet: `https://arc-testnet.drpc.org`)
+
+<Callout type="tip" title="Próximo passo">
+  Siga o [guia de instalação](/docs/getting-started) para configurar o Arc DevKit em 5 minutos.
+</Callout>

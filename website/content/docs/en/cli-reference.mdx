@@ -1,0 +1,590 @@
+---
+title: "CLI Reference"
+description: "Complete reference for the Arc DevKit command-line interface — two entry points: arcdevkit (grouped) and arc (full flat)."
+section: "Interfaces"
+order: 20
+---
+
+Arc DevKit installs two CLI executables:
+
+| Command | Entry point | Style |
+|---|---|---|
+| `arcdevkit` | `arc_devkit.cli.main:app` | Grouped subcommands (`copilot`, `agent`, `debug`) |
+| `arc` | `arc_devkit.cli.flat:app` | Direct commands — full feature set |
+
+---
+
+## `arcdevkit` — grouped CLI
+
+### `arcdevkit` / `arcdevkit --version`
+
+```bash
+arcdevkit            # displays banner with installed version
+arcdevkit --version  # prints version only
+arcdevkit -v         # alias for --version
+```
+
+### `arcdevkit status`
+
+Checks connection to Arc testnet and displays the current block, chain ID and gas price.
+
+```bash
+arcdevkit status
+```
+
+---
+
+### `arcdevkit copilot`
+
+AI assistant subcommand based on Dev Copilot.
+
+#### `arcdevkit copilot ask`
+
+```bash
+arcdevkit copilot ask PROMPT [--stream] [--json]
+```
+
+| Option | Alias | Description |
+|---|---|---|
+| `--stream` | `-s` | Stream response token by token |
+| `--json` | — | JSON output with `response` and `model` |
+
+**Examples:**
+
+```bash
+arcdevkit copilot ask "How do I create a wallet on Arc?"
+arcdevkit copilot ask "Generate an ERC-20 contract" --stream
+arcdevkit copilot ask "What is Malachite consensus?" --json
+```
+
+---
+
+### `arcdevkit agent`
+
+Subcommand for wallet and economic agent management.
+
+#### `arcdevkit agent create-wallet`
+
+Creates a new EVM wallet and displays the address and private key once.
+
+```bash
+arcdevkit agent create-wallet
+```
+
+<Callout type="danger" title="Private key shown only once">
+  Store the private key in a safe place immediately. It is not saved to any file.
+</Callout>
+
+#### `arcdevkit agent balance`
+
+```bash
+arcdevkit agent balance ADDRESS
+```
+
+Displays the balance of the specified wallet.
+
+#### `arcdevkit agent status`
+
+Displays Arc network information (current block, chain ID, gas price).
+
+```bash
+arcdevkit agent status
+```
+
+#### `arcdevkit agent pay`
+
+```bash
+arcdevkit agent pay TO AMOUNT [--send] [--key KEY]
+```
+
+Prepares (and optionally sends) a USDC payment on Arc.
+
+| Argument/Option | Description |
+|---|---|
+| `TO` | Recipient EVM address |
+| `AMOUNT` | Amount in USDC |
+| `--send` | Broadcasts the transaction (requires `ARC_PRIVATE_KEY`) |
+| `--key KEY` | Private key (overrides `ARC_PRIVATE_KEY`) |
+
+**Examples:**
+
+```bash
+# Prepare (dry run — does not send)
+arcdevkit agent pay 0xDest... 5.0
+
+# Actually send
+arcdevkit agent pay 0xDest... 5.0 --send
+
+# Send with explicit key
+arcdevkit agent pay 0xDest... 5.0 --send --key 0xYOURKEY...
+```
+
+#### `arcdevkit agent monitor`
+
+```bash
+arcdevkit agent monitor ADDRESS [--interval SECS] [--max N]
+```
+
+Monitors an Arc wallet and displays alerts when the balance changes.
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `--interval` | `-i` | `15` | Polling interval in seconds |
+| `--max` | — | `0` | Maximum iterations (`0` = infinite) |
+
+```bash
+arcdevkit agent monitor 0xWallet...
+arcdevkit agent monitor 0xWallet... --interval 5 --max 20
+```
+
+Press `Ctrl+C` to stop.
+
+---
+
+### `arcdevkit debug`
+
+Subcommand for transaction analysis and debugging.
+
+#### `arcdevkit debug tx`
+
+```bash
+arcdevkit debug tx TX_HASH [--json]
+```
+
+Analyzes an Arc transaction and displays a complete diagnostic with AI analysis.
+
+| Option | Description |
+|---|---|
+| `--json` | Output as raw JSON |
+
+```bash
+arcdevkit debug tx 0xabc123...
+arcdevkit debug tx 0xabc123... --json
+```
+
+#### `arcdevkit debug estimate`
+
+```bash
+arcdevkit debug estimate TO AMOUNT [--from ADDR]
+```
+
+Estimates the gas cost for a transfer on Arc.
+
+| Argument/Option | Description |
+|---|---|
+| `TO` | Recipient EVM address |
+| `AMOUNT` | Transfer amount in USDC |
+| `--from ADDR` | Sender address (optional) |
+
+```bash
+arcdevkit debug estimate 0xDest... 10.5
+arcdevkit debug estimate 0xDest... 10.5 --from 0xSender...
+```
+
+---
+
+## `arc` — flat CLI (full set)
+
+The `arc` executable exposes the same set of features as direct commands (without nested groups) and adds exclusive commands: `init`, `codegen`, `gas`, `send`, `history`, `balance`, `debug-batch` and `portfolio`.
+
+### `arc init`
+
+Interactive wizard to create the `.env` file from scratch.
+
+```bash
+arc init
+```
+
+Interactively prompts for:
+- `ANTHROPIC_API_KEY` (required)
+- `ARC_RPC_URL` (default: `https://arc-testnet.drpc.org`)
+- `ARC_CHAIN_ID` (default: `5042002`)
+- `ARC_PRIVATE_KEY` (optional)
+- `LOG_LEVEL` (default: `INFO`)
+
+---
+
+### `arc status`
+
+```bash
+arc status [--json] [-v]
+```
+
+Checks connection to Arc testnet. With `--json` returns `connected`, `chain_id`, `block_number`, `gas_price_gwei`.
+
+| Option | Alias | Description |
+|---|---|---|
+| `--json` | — | Output as JSON |
+| `--verbose` | `-v` | Enable debug logs |
+
+---
+
+### `arc ask`
+
+```bash
+arc ask QUESTION [--raw] [--stream] [--json] [-v]
+```
+
+Queries DevCopilot — AI assistant specialized in Arc development.
+
+| Option | Alias | Description |
+|---|---|---|
+| `--raw` | — | Print plain text without Markdown rendering |
+| `--stream` | `-s` | Stream response token by token |
+| `--json` | — | JSON output with `response` and `model` |
+| `--verbose` | `-v` | Enable debug logs |
+
+```bash
+arc ask "How do I deploy on Arc testnet?"
+arc ask "Generate a USDC vault contract" --stream
+arc ask "What is USDC ERC-20?" --json
+arc ask "Explain Malachite consensus" --raw
+```
+
+---
+
+### `arc balance`
+
+```bash
+arc balance ADDRESS [--json] [-v]
+```
+
+Displays the native ARC balance and nonce of a wallet.
+
+| Option | Alias | Description |
+|---|---|---|
+| `--json` | — | JSON output with `address`, `balance_arc`, `nonce` |
+| `--verbose` | `-v` | Enable debug logs |
+
+```bash
+arc balance 0xYourWallet...
+arc balance 0xYourWallet... --json
+```
+
+---
+
+### `arc gas`
+
+```bash
+arc gas TO AMOUNT [--from ADDR] [--json] [-v]
+```
+
+Estimates the gas cost for a USDC transfer on Arc.
+
+| Argument/Option | Alias | Description |
+|---|---|---|
+| `TO` | — | Recipient EVM address |
+| `AMOUNT` | — | Amount in USDC |
+| `--from ADDR` | `-f` | Sender address (optional) |
+| `--json` | — | Output as JSON |
+| `--verbose` | `-v` | Enable debug logs |
+
+```bash
+arc gas 0xDest... 10.5
+arc gas 0xDest... 10.5 --from 0xSender...
+arc gas 0xDest... 10.5 --json
+```
+
+---
+
+### `arc debug`
+
+```bash
+arc debug TX_HASH [--abi PATH] [--json] [-v]
+```
+
+Analyzes an Arc transaction with AI diagnostic. Optional ABI support to decode input data.
+
+| Option | Alias | Description |
+|---|---|---|
+| `--abi PATH` | `-a` | Path to JSON ABI file (optional) |
+| `--json` | — | Output as raw JSON |
+| `--verbose` | `-v` | Enable debug logs |
+
+```bash
+arc debug 0xTxHash...
+arc debug 0xTxHash... --abi MyContract.json
+arc debug 0xTxHash... --json
+```
+
+---
+
+### `arc debug-batch`
+
+```bash
+arc debug-batch HASHES_FILE [--abi PATH] [--json] [-v]
+```
+
+Analyzes multiple transactions in batch from a file.
+
+| Argument/Option | Alias | Description |
+|---|---|---|
+| `HASHES_FILE` | — | File with hashes (one per line or JSON array) |
+| `--abi PATH` | `-a` | JSON ABI file to decode inputs |
+| `--json` | — | Output as JSON |
+| `--verbose` | `-v` | Enable debug logs |
+
+**File format (one hash per line):**
+
+```text
+0xabc123...
+0xdef456...
+0xghi789...
+```
+
+**Alternative format (JSON array):**
+
+```json
+["0xabc123...", "0xdef456...", "0xghi789..."]
+```
+
+```bash
+arc debug-batch hashes.txt
+arc debug-batch hashes.json --abi MyContract.json --json
+```
+
+---
+
+### `arc codegen`
+
+```bash
+arc codegen TOPIC [--save | --no-save] [--out DIR] [-v]
+```
+
+Generates a Python script from a natural language description. The script is displayed on screen and saved to a file by default.
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `--save / --no-save` | — | `--save` | Save the generated script to a file |
+| `--out DIR` | `-o` | `.` (current directory) | Output directory |
+| `--verbose` | `-v` | — | Enable debug logs |
+
+```bash
+arc codegen "agent that monitors balance and sends alert"
+arc codegen "simple ERC-20 contract" --no-save
+arc codegen "batch payment script" --out ./scripts
+```
+
+---
+
+### `arc config`
+
+Reads and writes variables in the `.env` file.
+
+```bash
+arc config get KEY        # read a variable
+arc config set KEY VALUE  # set a variable
+arc config list           # list all variables
+```
+
+**Examples:**
+
+```bash
+arc config get ARC_RPC_URL
+arc config set LOG_LEVEL DEBUG
+arc config list
+```
+
+---
+
+### `arc wallet`
+
+Subcommand for basic wallet management.
+
+#### `arc wallet create`
+
+```bash
+arc wallet create [--json]
+```
+
+Creates a new EVM wallet and displays the address and private key once.
+
+| Option | Description |
+|---|---|
+| `--json` | JSON output with `address` and `private_key` |
+
+<Callout type="danger" title="Private key shown only once">
+  Copy and store the private key immediately. It is not saved to any file.
+</Callout>
+
+#### `arc wallet balance`
+
+```bash
+arc wallet balance ADDRESS [--json]
+```
+
+Displays the native ARC balance of a wallet.
+
+| Option | Description |
+|---|---|
+| `--json` | JSON output |
+
+---
+
+### `arc send`
+
+```bash
+arc send TO AMOUNT [--token TOKEN] [--broadcast] [--json] [-v]
+```
+
+Builds (and optionally broadcasts) a payment transaction on Arc. Requires `ARC_PRIVATE_KEY` configured.
+
+| Argument/Option | Alias | Default | Description |
+|---|---|---|---|
+| `TO` | — | — | Recipient EVM address |
+| `AMOUNT` | — | — | Amount to transfer |
+| `--token TOKEN` | `-t` | `native` | `native` (ARC) or `usdc` (ERC-20) |
+| `--broadcast` | `-b` | `False` | Broadcasts the transaction (requires `ARC_PRIVATE_KEY`) |
+| `--json` | — | — | Output as JSON |
+| `--verbose` | `-v` | — | Enable debug logs |
+
+```bash
+# Build transaction (dry run — does not send)
+arc send 0xDest... 5.0 --token native
+
+# Send native ARC
+arc send 0xDest... 1.0 --token native --broadcast
+
+# Send USDC ERC-20
+arc send 0xDest... 10.0 --token usdc --broadcast
+```
+
+<Callout type="warning" title="ARC_PRIVATE_KEY required for --broadcast">
+  Without the `ARC_PRIVATE_KEY` environment variable set, the command exits with an error. Use `arc config set ARC_PRIVATE_KEY 0x...` or set the variable in `.env`.
+</Callout>
+
+---
+
+### `arc history`
+
+```bash
+arc history [--limit N] [--json]
+```
+
+Lists recent analyses saved to `~/.arc_devkit/history.json`.
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `--limit` | `-n` | `10` | Number of records to display |
+| `--json` | — | — | Output as JSON |
+
+```bash
+arc history
+arc history --limit 50
+arc history --json
+```
+
+---
+
+### `arc portfolio`
+
+Wallet analysis: balance, transaction history and activity score.
+
+#### `arc portfolio analyze`
+
+```bash
+arc portfolio analyze ADDRESS [--blocks N] [--no-ai] [--json] [-v]
+```
+
+Analyzes a wallet: balances (native and USDC), recent transactions and AI insights.
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `--blocks` | `-b` | `100` | Number of recent blocks to scan |
+| `--no-ai` | — | — | Skip AI analysis (faster) |
+| `--json` | — | — | Output as JSON |
+| `--verbose` | `-v` | — | Enable debug logs |
+
+```bash
+arc portfolio analyze 0xYourWallet...
+arc portfolio analyze 0xYourWallet... --blocks 500
+arc portfolio analyze 0xYourWallet... --no-ai --json
+```
+
+The snapshot is automatically saved for history.
+
+#### `arc portfolio history`
+
+```bash
+arc portfolio history ADDRESS [--limit N] [--json]
+```
+
+Displays the history of saved snapshots for a wallet.
+
+| Option | Alias | Default | Description |
+|---|---|---|---|
+| `--limit` | `-n` | `10` | Maximum number of snapshots |
+| `--json` | — | — | Output as JSON |
+
+```bash
+arc portfolio history 0xYourWallet...
+arc portfolio history 0xYourWallet... --limit 30
+```
+
+#### `arc portfolio report`
+
+```bash
+arc portfolio report WALLETS_FILE [--blocks N] [--json] [-v]
+```
+
+Consolidated report for multiple wallets from a JSON file.
+
+| Argument/Option | Alias | Default | Description |
+|---|---|---|---|
+| `WALLETS_FILE` | — | — | JSON file with wallet list |
+| `--blocks` | `-b` | `100` | Blocks to scan per wallet |
+| `--json` | — | — | Output as JSON |
+| `--verbose` | `-v` | — | Enable debug logs |
+
+**File format (simple list):**
+
+```json
+["0xWallet1...", "0xWallet2...", "0xWallet3..."]
+```
+
+**Format with labels:**
+
+```json
+[
+  {"address": "0xWallet1...", "label": "Treasury"},
+  {"address": "0xWallet2...", "label": "Operations"}
+]
+```
+
+```bash
+arc portfolio report wallets.json
+arc portfolio report wallets.json --blocks 200 --json
+```
+
+---
+
+## JSON output
+
+All commands that support `--json` return structured data for integration with scripts and pipelines:
+
+```bash
+arc status --json
+# {"connected": true, "network": "Arc Testnet", "chain_id": 5042002, "block_number": 4821903, "gas_price_gwei": "1.0"}
+
+arc balance 0xYourWallet... --json
+# {"address": "0x...", "balance_arc": "1.500000", "nonce": 42}
+
+arc portfolio analyze 0xYourWallet... --no-ai --json
+# {"address": "0x...", "native_balance": "1.5", "usdc_balance": "10.0", "nonce": 42, "activity_score": "medium", ...}
+```
+
+## Help
+
+Any command accepts `--help`:
+
+```bash
+arcdevkit --help
+arcdevkit copilot --help
+arcdevkit agent --help
+arcdevkit debug --help
+
+arc --help
+arc send --help
+arc portfolio --help
+arc debug-batch --help
+```

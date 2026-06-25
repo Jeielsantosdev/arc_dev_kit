@@ -6,6 +6,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.1] — 2026-06-25
+
+### Fixed
+
+- **`TxAnalyzer.__init__`** — added `rpc_url: str | None` parameter for API consistency with `BaseAgent` and `AsyncMonitorAgent`; callers can now do `TxAnalyzer(rpc_url="https://...")` without constructing a `Web3` instance manually; `w3` parameter still accepted for backward compatibility
+- `TxAnalyzer` builds the connection with `ExtraDataToPOAMiddleware` when `rpc_url` is provided, matching Arc testnet PoA requirements
+
+---
+
 ## [0.4.0] — 2026-06-23
 
 ### Added

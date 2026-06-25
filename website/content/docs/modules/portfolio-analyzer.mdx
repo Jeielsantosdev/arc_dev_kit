@@ -1,0 +1,95 @@
+---
+title: "Portfolio Analyzer"
+description: "Snapshot completo de saldo, histórico de transações e score de atividade."
+section: "Módulos"
+order: 15
+---
+
+O `PortfolioAnalyzer` tira um snapshot do estado completo de uma carteira na Arc blockchain — saldo nativo, USDC, transações recentes e score de atividade.
+
+## Uso via CLI
+
+```bash
+# Analisar uma carteira
+arcdevkit portfolio analyze 0xSuaCarteira
+
+# Relatório consolidado de múltiplas carteiras
+arcdevkit portfolio report wallets.json
+```
+
+## Uso via Python
+
+```python
+from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+analyzer = PortfolioAnalyzer()
+snapshot = analyzer.analyze("0xSuaCarteira", blocks_back=1000)
+
+print(f"Native balance: {snapshot.native_balance} ARC")
+print(f"USDC balance:   {snapshot.usdc_balance} USDC")
+print(f"Total txs sent: {snapshot.nonce}")
+print(f"Activity:       {snapshot.activity_score}")  # high/medium/low/inactive
+print(f"Recent txs:     {len(snapshot.recent_txs)}")
+```
+
+## Score de atividade
+
+| Score | Critério |
+|---|---|
+| `high` | Muitas transações nos últimos N blocos |
+| `medium` | Atividade moderada |
+| `low` | Poucas transações |
+| `inactive` | Nenhuma transação no período analisado |
+
+## Relatório multi-wallet
+
+Crie um arquivo `wallets.json`:
+
+```json
+[
+  {"address": "0xWallet1", "label": "Treasury"},
+  {"address": "0xWallet2", "label": "Operations"}
+]
+```
+
+```bash
+arcdevkit portfolio report wallets.json
+```
+
+## Referência da API
+
+### `PortfolioAnalyzer()`
+
+Sem parâmetros.
+
+### `analyze(address, blocks_back=1000)`
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `address` | `str` | — | Endereço da carteira |
+| `blocks_back` | `int` | `1000` | Número de blocos para escanear |
+
+**Retorna:** `PortfolioSnapshot` com os campos abaixo.
+
+### `PortfolioSnapshot`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `address` | `str` | Endereço analisado |
+| `native_balance` | `Decimal` | Saldo nativo em ARC |
+| `usdc_balance` | `Decimal` | Saldo USDC |
+| `nonce` | `int` | Total de txs enviadas |
+| `activity_score` | `str` | `high/medium/low/inactive` |
+| `recent_txs` | `list[dict]` | Transações recentes no período |
+
+## Histórico de snapshots
+
+Cada análise é salva automaticamente em:
+
+```
+~/.arc_devkit/portfolio_history/{address}_{timestamp}.json
+```
+
+<Callout type="info" title="blocks_back e performance">
+  Aumentar `blocks_back` aumenta o tempo de análise proporcionalmente, pois faz mais chamadas RPC. Para uso em produção, comece com 500–1000 blocos.
+</Callout>

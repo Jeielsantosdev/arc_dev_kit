@@ -1,0 +1,65 @@
+---
+title: "Contributing"
+description: "How to contribute to Arc DevKit."
+section: "Guides"
+order: 32
+---
+
+## Development setup
+
+```bash
+git clone https://github.com/Jeielsantosdev/arc_dev_kit.git
+cd arc_dev_kit
+pip install -e ".[dev]"
+```
+
+## Tests
+
+```bash
+# Unit tests (no network)
+pytest
+
+# Single test
+pytest -k "test_copilot"
+
+# Integration tests (requires real keys)
+pytest -m integration
+
+# Coverage
+pytest --cov=arc_devkit --cov-report=html
+```
+
+## Lint and formatting
+
+```bash
+ruff check .
+ruff format .
+mypy arc_devkit/
+```
+
+## CI/CD
+
+| Pipeline | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | Every push/PR | Lint + unit tests on Python 3.11, 3.12, 3.13 + mypy |
+| `ci.yml` (integration) | `main` branch | `pytest -m integration` against Arc testnet |
+| `publish.yml` | Tag `v*` | Build wheel + sdist, publish to PyPI, GitHub Release |
+
+## Code conventions
+
+- All monetary values use `Decimal`, never `float`
+- Gas and native balance: 18 decimal places (`from_wei(..., "ether")`)
+- USDC ERC-20: 6 decimal places — distinguish carefully
+- `ARC_PRIVATE_KEY` is optional — read-only operations work without it
+- Tests set env vars in `conftest.py` before any package import
+- Integration tests marked with `@pytest.mark.integration`
+
+## Branch structure
+
+```
+main       — stable production (published releases)
+develop    — active development
+feature/*  — new features
+```
+
+Pull requests should be opened against `develop`.

@@ -1,0 +1,65 @@
+---
+title: "Contribuindo"
+description: "Como contribuir com o Arc DevKit."
+section: "Guias"
+order: 32
+---
+
+## Setup de desenvolvimento
+
+```bash
+git clone https://github.com/Jeielsantosdev/arc_dev_kit.git
+cd arc_dev_kit
+pip install -e ".[dev]"
+```
+
+## Testes
+
+```bash
+# Testes unitários (sem rede)
+pytest
+
+# Um teste específico
+pytest -k "test_copilot"
+
+# Testes de integração (requer chaves reais)
+pytest -m integration
+
+# Cobertura
+pytest --cov=arc_devkit --cov-report=html
+```
+
+## Lint e formatação
+
+```bash
+ruff check .
+ruff format .
+mypy arc_devkit/
+```
+
+## CI/CD
+
+| Pipeline | Trigger | O que faz |
+|---|---|---|
+| `ci.yml` | Todo push/PR | Lint + testes unitários no Python 3.11, 3.12, 3.13 + mypy |
+| `ci.yml` (integration) | Branch `main` | `pytest -m integration` contra Arc testnet |
+| `publish.yml` | Tag `v*` | Build wheel + sdist, publicação no PyPI, GitHub Release |
+
+## Convenções de código
+
+- Todos os valores monetários usam `Decimal`, nunca `float`
+- Gas e saldo nativo: 18 casas decimais (`from_wei(..., "ether")`)
+- USDC ERC-20: 6 casas decimais — distinga claramente
+- `ARC_PRIVATE_KEY` é opcional — operações read-only funcionam sem ela
+- Testes definem env vars no `conftest.py` antes de qualquer import do pacote
+- Testes de integração marcados com `@pytest.mark.integration`
+
+## Estrutura de branches
+
+```
+main       — produção estável (releases publicadas)
+develop    — desenvolvimento ativo
+feature/*  — novas funcionalidades
+```
+
+Pull requests devem ser abertos contra `develop`.

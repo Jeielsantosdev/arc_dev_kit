@@ -1,0 +1,128 @@
+---
+title: "Event Listener"
+description: "Continuous real-time subscription to on-chain events via eth_getLogs polling."
+section: "Modules"
+order: 18
+---
+
+`EventListener` subscribes to one or more on-chain events and fires a callback for each occurrence. Uses `eth_getLogs` polling — no WebSocket or middleware required.
+
+## Import
+
+```python
+from arc_devkit.core.event_listener import EventListener
+```
+
+## Subscribing to a single event
+
+```python
+with open("MyContract.abi.json") as f:
+    abi = json.load(f)
+
+listener = EventListener(
+    contract_address="0xContractAddr",
+    abi=abi,
+    event_names=["Transfer"],
+    interval_seconds=10,
+)
+
+def on_transfer(event):
+    print(f"Transfer: {event['args']['from']} → {event['args']['to']}: {event['args']['value']}")
+
+listener.start(callback=on_transfer)
+# Blocks until Ctrl+C or listener.stop()
+```
+
+## Multiple events
+
+```python
+listener = EventListener(
+    contract_address="0xContractAddr",
+    abi=abi,
+    event_names=["Transfer", "Approval", "Deposit"],
+    interval_seconds=5,
+)
+
+def on_event(event):
+    print(f"[{event['event']}] block={event['blockNumber']}")
+
+listener.start(callback=on_event)
+```
+
+## Starting from a specific block
+
+```python
+current_block = w3.eth.block_number
+
+listener = EventListener(
+    contract_address="0xAddr",
+    abi=abi,
+    event_names=["Swap"],
+    from_block=current_block - 100,   # process last 100 blocks first
+    interval_seconds=10,
+)
+```
+
+## Async version
+
+```python
+from arc_devkit.core.event_listener import AsyncEventListener
+
+async def main():
+    listener = AsyncEventListener(
+        contract_address="0xAddr",
+        abi=abi,
+        event_names=["Transfer"],
+        interval_seconds=10,
+    )
+    async for event in listener.stream():
+        print(event)
+```
+
+## Event structure
+
+```python
+{
+    "event": "Transfer",
+    "address": "0xContractAddr",
+    "blockNumber": 1234567,
+    "transactionHash": "0xabc...",
+    "args": {
+        "from": "0xSender",
+        "to": "0xReceiver",
+        "value": 1000000,
+    }
+}
+```
+
+## API Reference
+
+### `EventListener(contract_address, abi, event_names, interval_seconds, from_block)`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `contract_address` | `str` | — | Contract to monitor |
+| `abi` | `list` | — | Contract ABI |
+| `event_names` | `list[str]` | — | Events to subscribe to |
+| `interval_seconds` | `int` | `10` | Polling interval |
+| `from_block` | `int \| None` | `None` | Initial block (`None` = current) |
+
+### `start(callback)` — blocking
+
+### `stop()`
+
+### `AsyncEventListener` — same parameters, `stream()` returns `AsyncGenerator`
+
+## Features
+
+| Feature | Description |
+|---|---|
+| Multi-event | Subscribes to N events in a single instance |
+| Block cursor | Resumes from the last processed block automatically |
+| Deduplication | Ignores duplicate events (same tx hash + log index) |
+| No WebSocket | Works on any standard HTTP RPC |
+| Async | `AsyncEventListener` compatible with FastAPI and asyncio |
+
+<Callout type="tip" title="Block range limit">
+  Some public RPC nodes limit `eth_getLogs` to a maximum range of 10,000 blocks per call. `EventListener` automatically splits large ranges into batches of 2,000 blocks.
+</Callout>

@@ -1,0 +1,95 @@
+---
+title: "Portfolio Analyzer"
+description: "Complete wallet snapshot — balance, transaction history and activity score."
+section: "Modules"
+order: 15
+---
+
+`PortfolioAnalyzer` takes a snapshot of a wallet's complete state on the Arc blockchain — native balance, USDC, recent transactions and activity score.
+
+## Usage via CLI
+
+```bash
+# Analyze a wallet
+arcdevkit portfolio analyze 0xYourWallet
+
+# Consolidated report for multiple wallets
+arcdevkit portfolio report wallets.json
+```
+
+## Usage via Python
+
+```python
+from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+analyzer = PortfolioAnalyzer()
+snapshot = analyzer.analyze("0xYourWallet", blocks_back=1000)
+
+print(f"Native balance: {snapshot.native_balance} ARC")
+print(f"USDC balance:   {snapshot.usdc_balance} USDC")
+print(f"Total txs sent: {snapshot.nonce}")
+print(f"Activity:       {snapshot.activity_score}")  # high/medium/low/inactive
+print(f"Recent txs:     {len(snapshot.recent_txs)}")
+```
+
+## Activity score
+
+| Score | Criterion |
+|---|---|
+| `high` | Many transactions in the last N blocks |
+| `medium` | Moderate activity |
+| `low` | Few transactions |
+| `inactive` | No transactions in the analyzed period |
+
+## Multi-wallet report
+
+Create a `wallets.json` file:
+
+```json
+[
+  {"address": "0xWallet1", "label": "Treasury"},
+  {"address": "0xWallet2", "label": "Operations"}
+]
+```
+
+```bash
+arcdevkit portfolio report wallets.json
+```
+
+## API Reference
+
+### `PortfolioAnalyzer()`
+
+No parameters.
+
+### `analyze(address, blocks_back=1000)`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `address` | `str` | — | Wallet address |
+| `blocks_back` | `int` | `1000` | Number of blocks to scan |
+
+**Returns:** `PortfolioSnapshot` with the fields below.
+
+### `PortfolioSnapshot`
+
+| Field | Type | Description |
+|---|---|---|
+| `address` | `str` | Analyzed address |
+| `native_balance` | `Decimal` | Native ARC balance |
+| `usdc_balance` | `Decimal` | USDC balance |
+| `nonce` | `int` | Total transactions sent |
+| `activity_score` | `str` | `high/medium/low/inactive` |
+| `recent_txs` | `list[dict]` | Recent transactions in the period |
+
+## Snapshot history
+
+Each analysis is automatically saved to:
+
+```
+~/.arc_devkit/portfolio_history/{address}_{timestamp}.json
+```
+
+<Callout type="info" title="blocks_back and performance">
+  Increasing `blocks_back` increases analysis time proportionally, as it makes more RPC calls. For production use, start with 500–1000 blocks.
+</Callout>
