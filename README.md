@@ -8,6 +8,7 @@
 [![Testnet](https://img.shields.io/badge/arc-testnet-orange.svg)](https://arc.io)
 
 **Arc DevKit** is a complete Python SDK for developers building on the **Arc blockchain** — Circle's EVM-compatible Layer 1 with USDC as the gas token and sub-second finality.
+link to project -> https://arc-dev-kit-uxun.vercel.app/
 
 It solves the practical friction of building on Arc: USDC gas accounting, PoA middleware, ERC-20 monitoring, async agents, WebSocket streaming, and AI-assisted debugging — all packaged and ready to use.
 
