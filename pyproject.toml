@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arc-devkit"
-version = "0.4.0"
+version = "0.4.1"
 description = "Plataforma open source de ferramentas para desenvolvedores da Arc blockchain (Circle)"
 readme = "README.md"
 license = { text = "MIT" }
@@ -43,6 +43,11 @@ dependencies = [
     "httpx>=0.27",
     "tenacity>=8.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Jeielsantosdev/arc_dev_kit"
+Repository = "https://github.com/Jeielsantosdev/arc_dev_kit"
+Issues = "https://github.com/Jeielsantosdev/arc_dev_kit/issues"
 
 [project.optional-dependencies]
 dev = [
