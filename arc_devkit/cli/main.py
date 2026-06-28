@@ -49,6 +49,14 @@ def main(
 
 
 @app.command()
+def init() -> None:
+    """Interactive wizard to create your .env from scratch."""
+    from arc_devkit.cli.flat import init as _run_init
+
+    _run_init()
+
+
+@app.command()
 def status() -> None:
     """Check the connection to Arc testnet and display network information."""
     from arc_devkit.core.connection import check_connection, get_web3
