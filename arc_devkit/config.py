@@ -4,9 +4,9 @@ import logging
 import os
 from dataclasses import dataclass
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 
 @dataclass(frozen=True)
