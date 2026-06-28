@@ -6,6 +6,7 @@ from rich.panel import Panel
 
 from arc_devkit import __version__
 from arc_devkit.cli.commands import agent, copilot, debug
+from arc_devkit.cli.flat import config_app, portfolio_app
 
 # Main Typer application
 app = typer.Typer(
@@ -20,6 +21,8 @@ app = typer.Typer(
 app.add_typer(copilot.app, name="copilot", help="AI assistant for Arc development.")
 app.add_typer(agent.app, name="agent", help="Wallet and agent management.")
 app.add_typer(debug.app, name="debug", help="Transaction analysis and debugging.")
+app.add_typer(config_app, name="config", help="Manage Arc DevKit settings via .env.")
+app.add_typer(portfolio_app, name="portfolio", help="Wallet portfolio analysis on Arc.")
 
 console = Console()
 
@@ -54,6 +57,30 @@ def init() -> None:
     from arc_devkit.cli.flat import init as _run_init
 
     _run_init()
+
+
+@app.command()
+def history(
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of records to display."),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """List recent CLI operations saved in ~/.arc_devkit/history.json."""
+    from arc_devkit.cli.flat import history as _run_history
+
+    _run_history(limit=limit, json_output=json_output)
+
+
+@app.command()
+def codegen(
+    topic: str = typer.Argument(..., help="Describe what the script should do."),
+    save: bool = typer.Option(True, "--save/--no-save", help="Save to generated/<timestamp>.py"),
+    output_dir: str = typer.Option(".", "--out", "-o", help="Output directory (default: current)."),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Enable debug logs."),
+) -> None:
+    """Generate a Python script for Arc from a natural language description."""
+    from arc_devkit.cli.flat import codegen as _run_codegen
+
+    _run_codegen(topic=topic, save=save, output_dir=output_dir, verbose=verbose)
 
 
 @app.command()

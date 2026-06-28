@@ -47,10 +47,10 @@ cp .env.example .env
 #    ARC_PRIVATE_KEY    — optional; needed to send transactions
 
 # 3. Guided interactive setup (creates .env from scratch)
-arc init
+arcdevkit init
 
 # 4. Verify connection
-arc status
+arcdevkit status
 ```
 
 ```
@@ -89,10 +89,10 @@ AI assistant powered by Claude Sonnet, with Arc blockchain context embedded in t
 
 ```bash
 # Ask a question
-arc ask "How do I deploy an ERC-20 contract on Arc testnet?"
+arcdevkit copilot ask "How do I deploy an ERC-20 contract on Arc testnet?"
 
 # Streaming output (token by token)
-arc ask --stream "Write a USDC payment contract in Solidity"
+arcdevkit copilot ask "Write a USDC payment contract in Solidity" --stream
 ```
 
 ### Python
@@ -308,16 +308,16 @@ Fetches transaction data via RPC, decodes the error/result, and uses the Dev Cop
 
 ```bash
 # Analyze a transaction
-arc debug tx 0xYourTxHashHere
+arcdevkit debug tx 0xYourTxHashHere
 
 # Load an ABI to decode input data
-arc debug tx 0xYourTxHash --abi ./MyContract.abi.json
+arcdevkit debug tx 0xYourTxHash --abi ./MyContract.abi.json
 
 # Batch — analyze a file of hashes (one per line)
-arc debug batch hashes.txt
+arcdevkit debug batch hashes.txt
 
-# View recent analysis history
-arc history
+# View recent operation history
+arcdevkit history
 ```
 
 ```python
@@ -354,10 +354,13 @@ Snapshot a wallet's complete state and activity on Arc, with AI commentary.
 
 ```bash
 # Analyze a single wallet
-arc portfolio analyze 0xYourWalletAddress
+arcdevkit portfolio analyze 0xYourWalletAddress
+
+# Show saved balance history
+arcdevkit portfolio history 0xYourWalletAddress
 
 # Generate a consolidated report for multiple wallets
-arc portfolio report wallets.json
+arcdevkit portfolio report wallets.json
 ```
 
 ```python
@@ -552,54 +555,77 @@ The `docker-compose.yml` mounts your `.env` and runs the API on port 8000 with a
 
 ## CLI Reference
 
-Arc DevKit provides two CLI entry points:
+The primary entry point is `arcdevkit`, with commands grouped by domain.
 
-| Command | Entry Point |
-|---|---|
-| `arc` | Flat, friendly commands for day-to-day use |
-| `arcdevkit` | Grouped subcommand style |
-
-### `arc` — quick commands
+### Setup
 
 ```bash
-# Setup
-arc init                                 # guided .env wizard
-arc status                               # testnet connection + block info
-arc config list                          # show all env vars
-arc config get ANTHROPIC_API_KEY         # read a specific var
-arc config set ARC_RPC_URL https://...   # write a var
-
-# Wallet
-arc wallet create                        # generate new wallet
-arc wallet balance --address 0x...       # check balance
-
-# AI Copilot
-arc ask "What is Malachite consensus?"
-arc ask --stream "Write a USDC vault"
-arc ask --json "..."                     # output as JSON
-
-# Transaction debugging
-arc debug tx 0xHash
-arc debug tx 0xHash --abi Contract.json
-arc history                              # list recent debug sessions
-
-# Portfolio
-arc portfolio analyze 0xWallet
-arc portfolio report wallets.json
-
-# Flags (work on every command)
-arc --json <cmd>                         # machine-readable JSON output
-arc -v <cmd>                             # verbose (DEBUG logging)
+arcdevkit init                              # interactive .env wizard
+arcdevkit status                            # check testnet connection + block info
 ```
 
-### `arcdevkit` — grouped style
+### Config — manage `.env`
 
 ```bash
-arcdevkit status
-arcdevkit copilot ask "..."
-arcdevkit agent wallet create
-arcdevkit agent pay --to 0x... --amount 10
-arcdevkit debug tx 0xHash
+arcdevkit config list                       # show all variables
+arcdevkit config get ANTHROPIC_API_KEY      # read a specific variable
+arcdevkit config set ARC_RPC_URL https://...# write a variable
+```
+
+### Copilot — AI assistant
+
+```bash
+arcdevkit copilot ask "What is Malachite consensus?"
+arcdevkit copilot ask "Write a USDC vault" --stream   # token-by-token streaming
+arcdevkit copilot ask "..." --json                    # output as JSON
+```
+
+### Agent — wallet & payments
+
+```bash
+arcdevkit agent create-wallet               # generate new EVM wallet
+arcdevkit agent balance 0xAddress...        # check wallet balance
+arcdevkit agent status                      # network info (block, chain ID, gas)
+arcdevkit agent pay 0xDest... 5.0           # sign-only (safe default)
+arcdevkit agent pay 0xDest... 5.0 --send    # sign and broadcast
+arcdevkit agent pay 0xDest... 5.0 --send --key 0xPrivKey...
+arcdevkit agent monitor 0xWallet...         # watch balance changes
+arcdevkit agent monitor 0xWallet... --interval 5 --max 50
+```
+
+### Debug — transaction analysis
+
+```bash
+arcdevkit debug tx 0xHash...                # analyze a transaction with AI
+arcdevkit debug tx 0xHash... --json
+arcdevkit debug estimate 0xDest... 10.0     # estimate gas cost
+arcdevkit debug estimate 0xDest... 10.0 --from 0xSender...
+arcdevkit debug batch hashes.txt            # analyze multiple txs from a file
+arcdevkit debug batch hashes.txt --abi MyContract.json
+```
+
+### Portfolio — wallet analytics
+
+```bash
+arcdevkit portfolio analyze 0xWallet...     # balances, txs, AI insights
+arcdevkit portfolio analyze 0xWallet... --no-ai --blocks 500
+arcdevkit portfolio history 0xWallet...     # saved balance snapshots
+arcdevkit portfolio report wallets.json     # consolidated multi-wallet report
+```
+
+### Codegen — script generation
+
+```bash
+arcdevkit codegen "monitor a wallet and alert when balance drops"
+arcdevkit codegen "deploy an ERC-20 with a mint function" --out ./scripts
+arcdevkit codegen "..." --no-save           # print only, don't save to disk
+```
+
+### History — operation log
+
+```bash
+arcdevkit history                           # last 10 CLI operations
+arcdevkit history --limit 25 --json
 ```
 
 ---
