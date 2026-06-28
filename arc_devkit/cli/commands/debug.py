@@ -75,6 +75,27 @@ def tx(
 
 
 @app.command()
+def batch(
+    hashes_file: str = typer.Argument(
+        ..., help="Text file with one tx hash per line (or JSON array)."
+    ),
+    abi_path: str = typer.Option(
+        "", "--abi", "-a", help="Path to ABI JSON file applied to all transactions."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Analyze multiple transactions from a file (one hash per line or JSON array).
+
+    Examples:
+      arcdevkit debug batch hashes.txt
+      arcdevkit debug batch hashes.txt --abi MyContract.json --json
+    """
+    from arc_devkit.cli.flat import debug_batch as _run_batch
+
+    _run_batch(hashes_file=hashes_file, abi_path=abi_path, json_output=json_output, verbose=False)
+
+
+@app.command()
 def estimate(
     to: str = typer.Argument(..., help="Recipient EVM address."),
     amount: float = typer.Argument(..., help="Amount to transfer (in USDC)."),
