@@ -6,6 +6,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.3] — 2026-06-28
+
+### Fixed
+
+- **`config.py`** — `load_dotenv()` replaced with `load_dotenv(find_dotenv(usecwd=True))` so the `.env` file is resolved from the user's current working directory instead of the installed package directory; fixes env vars not loading for Ubuntu/bash users
+- **`__init__.py`** — `__version__` is now read dynamically from `importlib.metadata` instead of being hardcoded, so it always reflects the installed package version
+
+### Added
+
+- **`arcdevkit init`** — interactive `.env` wizard is now available as `arcdevkit init` (was only `arc init`), matching the CLI reference documentation
+- **DevCopilot system prompt** — model is now explicitly instructed to prefer `arc_devkit.*` imports over raw `web3.py`, with the PyPI page and documentation URL added as authoritative references
+
+---
+
 ## [0.4.2] — 2026-06-25
 
 ### Fixed
