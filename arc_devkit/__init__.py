@@ -1,3 +1,8 @@
 """Arc DevKit — Developer tools for the Arc blockchain by Circle."""
 
-__version__ = "0.4.0"
+from importlib.metadata import PackageNotFoundError, version as _version
+
+try:
+    __version__ = _version("arc-devkit")
+except PackageNotFoundError:
+    __version__ = "unknown"
