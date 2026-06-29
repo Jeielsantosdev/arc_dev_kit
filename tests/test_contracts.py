@@ -14,9 +14,7 @@ import pytest
 
 class TestLoadAbi:
     def _write_json(self, data: object, suffix: str = ".json") -> Path:
-        f = tempfile.NamedTemporaryFile(
-            mode="w", suffix=suffix, delete=False, encoding="utf-8"
-        )
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False, encoding="utf-8")
         json.dump(data, f)
         f.flush()
         return Path(f.name)
@@ -153,7 +151,9 @@ class TestDecodeEvents:
 
         w3 = MagicMock()
         decoded_log = MagicMock()
-        decoded_log.__getitem__ = lambda self, k: {"args": {"from": "0xa", "to": "0xb", "value": 100}}[k]
+        decoded_log.__getitem__ = lambda self, k: {
+            "args": {"from": "0xa", "to": "0xb", "value": 100}
+        }[k]
         w3.eth.contract.return_value.events.__getitem__.return_value.return_value.process_receipt.return_value = [
             {"args": {"from": "0xa", "to": "0xb", "value": 100}}
         ]
@@ -180,8 +180,6 @@ class TestDecodeEvents:
         from arc_devkit.contracts.loader import decode_events
 
         w3 = MagicMock()
-        w3.eth.contract.return_value.events.__getitem__.return_value.return_value.process_receipt.return_value = (
-            []
-        )
+        w3.eth.contract.return_value.events.__getitem__.return_value.return_value.process_receipt.return_value = []
         result = decode_events({}, [], "Transfer", "0x" + "a" * 40, w3=w3)
         assert result == []

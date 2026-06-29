@@ -13,8 +13,8 @@ from arc_devkit.core.connection import get_web3
 logger = logging.getLogger(__name__)
 
 # Solidity revert selectors
-_REVERT_SELECTOR = bytes.fromhex("08c379a0")   # Error(string)
-_PANIC_SELECTOR = bytes.fromhex("4e487b71")    # Panic(uint256)
+_REVERT_SELECTOR = bytes.fromhex("08c379a0")  # Error(string)
+_PANIC_SELECTOR = bytes.fromhex("4e487b71")  # Panic(uint256)
 
 _PANIC_CODES: dict[int, str] = {
     0x00: "Generic compiler-inserted panic",
@@ -164,6 +164,7 @@ class TxAnalyzer:
             self._w3 = w3
         elif rpc_url:
             from web3.middleware import ExtraDataToPOAMiddleware
+
             _w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 10}))
             _w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
             self._w3 = _w3
@@ -252,9 +253,7 @@ class TxAnalyzer:
             summary = copilot.ask(prompt)
         except Exception as exc:
             logger.warning("AI analysis unavailable: %s", exc)
-            summary = (
-                f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
-            )
+            summary = f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
             if revert_reason:
                 summary += f" | Revert: {revert_reason}"
 
@@ -364,7 +363,13 @@ class TxAnalyzer:
                     normalized[k] = str(v)
                 elif isinstance(v, (list, tuple)):
                     normalized[k] = [
-                        ("0x" + x.hex() if isinstance(x, bytes) else str(x) if isinstance(x, int) else x)
+                        (
+                            "0x" + x.hex()
+                            if isinstance(x, bytes)
+                            else str(x)
+                            if isinstance(x, int)
+                            else x
+                        )
                         for x in v
                     ]
                 else:

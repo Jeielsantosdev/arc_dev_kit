@@ -320,9 +320,7 @@ class TestDebugCLI:
         from arc_devkit.cli.flat import app
 
         runner = CliRunner()
-        result = runner.invoke(
-            app, ["debug", "0x" + "a" * 64, "--abi", "nonexistent.json"]
-        )
+        result = runner.invoke(app, ["debug", "0x" + "a" * 64, "--abi", "nonexistent.json"])
         assert result.exit_code != 0
 
     def test_debug_batch_from_txt_file(self, mock_anthropic):

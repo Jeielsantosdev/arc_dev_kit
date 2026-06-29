@@ -220,7 +220,9 @@ class TestHistory:
     def test_history_json_output(self, tmp_path, monkeypatch):
         history_file = tmp_path / "history.json"
         history_file.write_text(
-            json.dumps([{"type": "debug", "tx_hash": "0x" + "a" * 64, "timestamp": "2026-06-21T10:00:00"}])
+            json.dumps(
+                [{"type": "debug", "tx_hash": "0x" + "a" * 64, "timestamp": "2026-06-21T10:00:00"}]
+            )
         )
         monkeypatch.setattr("arc_devkit.cli.flat._HISTORY_FILE", history_file)
         result = runner.invoke(app, ["history", "--json"])
@@ -232,7 +234,15 @@ class TestHistory:
     def test_history_table_output(self, tmp_path, monkeypatch):
         history_file = tmp_path / "history.json"
         history_file.write_text(
-            json.dumps([{"type": "portfolio", "address": "0x" + "a" * 40, "timestamp": "2026-06-21T10:00:00"}])
+            json.dumps(
+                [
+                    {
+                        "type": "portfolio",
+                        "address": "0x" + "a" * 40,
+                        "timestamp": "2026-06-21T10:00:00",
+                    }
+                ]
+            )
         )
         monkeypatch.setattr("arc_devkit.cli.flat._HISTORY_FILE", history_file)
         result = runner.invoke(app, ["history"])
@@ -273,7 +283,10 @@ class TestDebugCommand:
                 "summary": "OK",
                 "custo_usdc": "0.0001",
                 "revert_reason": None,
-                "decoded_input": {"function": "transfer", "args": {"to": "0xf...", "amount": "100"}},
+                "decoded_input": {
+                    "function": "transfer",
+                    "args": {"to": "0xf...", "amount": "100"},
+                },
                 "error": None,
                 "suggestion": "",
                 "raw_data": {},
@@ -349,7 +362,9 @@ class TestSendCommand:
             "raw_transaction": "0xdeadbeef",
             "nota": "Transaction signed.",
         }
-        with patch("arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result):
+        with patch(
+            "arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result
+        ):
             result = runner.invoke(
                 app,
                 ["send", "0x" + "b" * 40, "1.0", "--token", "native", "--json"],
@@ -373,7 +388,9 @@ class TestSendCommand:
             "raw_transaction": "0xcafebabe",
             "nota": "USDC transfer signed.",
         }
-        with patch("arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result):
+        with patch(
+            "arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result
+        ):
             result = runner.invoke(
                 app,
                 ["send", "0x" + "b" * 40, "5.0", "--token", "usdc", "--json"],
@@ -398,7 +415,9 @@ class TestSendCommand:
             "raw_transaction": "0xdeadbeef01020304050607080910111213",
             "nota": "Transaction signed.",
         }
-        with patch("arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result):
+        with patch(
+            "arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=signed_result
+        ):
             result = runner.invoke(app, ["send", "0x" + "b" * 40, "2.0"])
 
         assert result.exit_code == 0
@@ -417,7 +436,9 @@ class TestSendCommand:
             "tx_hash": "0x" + "de" * 32,
             "aviso": "Timeout waiting for receipt.",
         }
-        with patch("arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=sent_result):
+        with patch(
+            "arc_devkit.agents.payment_agent.PaymentAgent.execute", return_value=sent_result
+        ):
             result = runner.invoke(app, ["send", "0x" + "b" * 40, "3.0", "--token", "usdc"])
 
         assert result.exit_code == 0

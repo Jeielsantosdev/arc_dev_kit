@@ -234,9 +234,7 @@ class TestPaymentAgent:
         from arc_devkit.agents.payment_agent import PaymentAgent
 
         agent = PaymentAgent(private_key="0x" + "a" * 64)
-        with patch("time.sleep") as mock_sleep, patch(
-            "time.time", side_effect=[0.0, 1.0, 2.0]
-        ):
+        with patch("time.sleep") as mock_sleep, patch("time.time", side_effect=[0.0, 1.0, 2.0]):
             result = agent._wait_for_receipt(b"\xde\xad", timeout=10)
         assert result == receipt
         mock_sleep.assert_called_once()

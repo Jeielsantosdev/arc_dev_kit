@@ -439,11 +439,11 @@ class TestBalanceHistory:
 
         from arc_devkit.cli.flat import app
 
-        monkeypatch.setattr(
-            "arc_devkit.analytics.portfolio._HISTORY_DIR", tmp_path / "history"
-        )
+        monkeypatch.setattr("arc_devkit.analytics.portfolio._HISTORY_DIR", tmp_path / "history")
         runner = CliRunner()
-        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=[]):
+        with patch(
+            "arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=[]
+        ):
             result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40])
         assert result.exit_code == 0
         assert "No history" in result.output or "history" in result.output.lower()
@@ -454,9 +454,13 @@ class TestBalanceHistory:
 
         from arc_devkit.cli.flat import app
 
-        records = [{"native_balance": "1.5", "timestamp": "2026-01-01T00:00:00+00:00", "tx_count": 2}]
+        records = [
+            {"native_balance": "1.5", "timestamp": "2026-01-01T00:00:00+00:00", "tx_count": 2}
+        ]
         runner = CliRunner()
-        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=records):
+        with patch(
+            "arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=records
+        ):
             result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40, "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)

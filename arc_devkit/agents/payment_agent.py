@@ -85,12 +85,15 @@ class PaymentAgent(BaseAgent):
         nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
 
         tx = contract.functions.transfer(to, atomic).build_transaction(
-            cast(TxParams, {
-                "from": self._address,
-                "nonce": nonce,
-                "gasPrice": self._w3.eth.gas_price,
-                "chainId": self._w3.eth.chain_id,
-            })
+            cast(
+                TxParams,
+                {
+                    "from": self._address,
+                    "nonce": nonce,
+                    "gasPrice": self._w3.eth.gas_price,
+                    "chainId": self._w3.eth.chain_id,
+                },
+            )
         )
         gas_limit = self._estimate_gas(cast(TxParams, tx))
         tx["gas"] = gas_limit
@@ -137,15 +140,20 @@ class PaymentAgent(BaseAgent):
             else:
                 value_wei = self._w3.to_wei(amount_usdc, "ether")
                 nonce = self._w3.eth.get_transaction_count(cast(ChecksumAddress, self._address))
-                tx_base = cast(TxParams, {
-                    "from": self._address,
-                    "to": destinatario,
-                    "value": value_wei,
-                    "nonce": nonce,
-                    "chainId": self._w3.eth.chain_id,
-                })
+                tx_base = cast(
+                    TxParams,
+                    {
+                        "from": self._address,
+                        "to": destinatario,
+                        "value": value_wei,
+                        "nonce": nonce,
+                        "chainId": self._w3.eth.chain_id,
+                    },
+                )
                 gas_limit = self._estimate_gas(tx_base)
-                tx = cast(TxParams, {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price})
+                tx = cast(
+                    TxParams, {**tx_base, "gas": gas_limit, "gasPrice": self._w3.eth.gas_price}
+                )
                 signed = self._w3.eth.account.sign_transaction(tx, self._private_key)
                 self.log("Transaction signed successfully.")
 

@@ -34,11 +34,11 @@ class PortfolioSnapshot:
     """Point-in-time view of a wallet's portfolio on Arc."""
 
     address: str
-    native_balance: Decimal          # ARC (18 decimals, converted to ether)
-    usdc_balance: Decimal | None     # USDC (6 decimals); None if contract unavailable
-    nonce: int                       # total txs ever sent from this address
+    native_balance: Decimal  # ARC (18 decimals, converted to ether)
+    usdc_balance: Decimal | None  # USDC (6 decimals); None if contract unavailable
+    nonce: int  # total txs ever sent from this address
     recent_txs: list[TransactionSummary]
-    blocks_scanned: int              # actual number of blocks inspected
+    blocks_scanned: int  # actual number of blocks inspected
     blocks_from: int
     blocks_to: int
     activity_score: ActivityLevel
@@ -289,9 +289,7 @@ class PortfolioAnalyzer:
                 except Exception:
                     pass
 
-                value_arc = Decimal(
-                    str(self._w3.from_wei(tx.get("value", 0), "ether"))
-                )
+                value_arc = Decimal(str(self._w3.from_wei(tx.get("value", 0), "ether")))
 
                 results.append(
                     TransactionSummary(

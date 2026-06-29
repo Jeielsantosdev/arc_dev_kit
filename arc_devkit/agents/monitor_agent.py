@@ -111,10 +111,12 @@ class MonitorAgent(BaseAgent):
         if self._state_file:
             try:
                 self._state_file.write_text(
-                    json.dumps({
-                        "balances": {k: str(v) for k, v in self._last_balances.items()},
-                        "last_erc20_block": self._last_erc20_block,
-                    })
+                    json.dumps(
+                        {
+                            "balances": {k: str(v) for k, v in self._last_balances.items()},
+                            "last_erc20_block": self._last_erc20_block,
+                        }
+                    )
                 )
             except Exception as exc:
                 logger.warning("Failed to save state: %s", exc)
@@ -170,7 +172,11 @@ class MonitorAgent(BaseAgent):
 
             direction = "credit" if recipient in self._watched_lower else "debit"
             address = next(
-                (a for a in self._watched if a.lower() == (recipient if direction == "credit" else sender)),
+                (
+                    a
+                    for a in self._watched
+                    if a.lower() == (recipient if direction == "credit" else sender)
+                ),
                 "",
             )
 

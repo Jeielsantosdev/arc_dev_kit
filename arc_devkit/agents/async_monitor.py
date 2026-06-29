@@ -99,10 +99,12 @@ class AsyncMonitorAgent(AsyncBaseAgent):
         if self._state_file:
             try:
                 self._state_file.write_text(
-                    json.dumps({
-                        "balances": {k: str(v) for k, v in self._last_balances.items()},
-                        "last_erc20_block": self._last_erc20_block,
-                    })
+                    json.dumps(
+                        {
+                            "balances": {k: str(v) for k, v in self._last_balances.items()},
+                            "last_erc20_block": self._last_erc20_block,
+                        }
+                    )
                 )
             except Exception as exc:
                 logger.warning("Failed to save state: %s", exc)
@@ -159,7 +161,11 @@ class AsyncMonitorAgent(AsyncBaseAgent):
 
             direction = "credit" if recipient in self._watched_lower else "debit"
             address = next(
-                (a for a in self._watched if a.lower() == (recipient if direction == "credit" else sender)),
+                (
+                    a
+                    for a in self._watched
+                    if a.lower() == (recipient if direction == "credit" else sender)
+                ),
                 "",
             )
 
@@ -182,9 +188,7 @@ class AsyncMonitorAgent(AsyncBaseAgent):
     async def get_balance(self) -> dict:  # type: ignore[override]
         resultado = {}
         for addr in self._watched:
-            wei = await self._acall_rpc(
-                self._w3.eth.get_balance, cast(ChecksumAddress, addr)
-            )
+            wei = await self._acall_rpc(self._w3.eth.get_balance, cast(ChecksumAddress, addr))
             resultado[addr] = {
                 "address": addr,
                 "balance_wei": str(wei),
@@ -215,9 +219,7 @@ class AsyncMonitorAgent(AsyncBaseAgent):
 
         if self._usdc_contract and self._last_erc20_block == 0:
             try:
-                self._last_erc20_block = await self._acall_rpc(
-                    lambda: self._w3.eth.block_number
-                )
+                self._last_erc20_block = await self._acall_rpc(lambda: self._w3.eth.block_number)
             except Exception:
                 pass
 

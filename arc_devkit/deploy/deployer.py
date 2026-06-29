@@ -214,8 +214,7 @@ class ContractDeployer:
         if key is None:
             available = [k.split(":")[-1] for k in compiled]
             raise ValueError(
-                f"Contract '{contract_name}' not found. "
-                f"Available: {', '.join(available)}"
+                f"Contract '{contract_name}' not found. Available: {', '.join(available)}"
             )
 
         abi = compiled[key]["abi"]

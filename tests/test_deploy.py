@@ -161,7 +161,9 @@ class TestContractDeployer:
 
     def test_deploy_from_source_raises_import_error_without_solcx(self, tmp_path):
         sol_file = tmp_path / "Token.sol"
-        sol_file.write_text("// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract Token {}")
+        sol_file.write_text(
+            "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract Token {}"
+        )
 
         d = self._deployer()
         with patch.dict("sys.modules", {"solcx": None}):
