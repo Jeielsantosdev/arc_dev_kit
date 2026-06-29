@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Arc DevKit is a complete Python SDK for developers building on the **Arc blockchain** (by Circle) — EVM-compatible Layer 1 with USDC as gas token and Malachite consensus (<1s finality). Eleven modules: Dev Copilot, Payment Agent, Monitor Agent, Async Monitor, Tx Debugger, Portfolio Analyzer, USDC Token, Contracts, Event Listener, Contract Deployer, REST API + CLI.
 
-Primary language: **Python 3.11+**. Testnet RPC: `https://arc-testnet.drpc.org`. Chain ID: `5042002`. Claude model: `claude-sonnet-4-6`. Current version: **0.4.5**.
+Primary language: **Python 3.11+**. Testnet RPC: `https://arc-testnet.drpc.org`. Chain ID: `5042002`. Claude model: `claude-sonnet-4-6`. Current version: **0.4.6**.
 
 ## Commands
 

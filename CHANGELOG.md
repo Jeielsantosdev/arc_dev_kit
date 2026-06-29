@@ -6,6 +6,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.6] — 2026-06-29
+
+### Fixed
+
+- **`codegen` — truncamento de resposta** — `DevCopilot.MAX_TOKENS` era 2000, insuficiente para scripts completos; o modelo cortava a resposta antes do fechamento do bloco ` ```python `, causando "Could not extract a code block".
+  - `DevCopilot.__init__()` aceita agora `max_tokens: int | None` para sobrescrever o limite por instância
+  - `codegen` instancia `DevCopilot(max_tokens=8000)`, dando espaço suficiente para scripts completos
+  - Regex de fallback adicionado: extrai código mesmo quando o fence de fechamento está ausente
+
+---
+
 ## [0.4.5] — 2026-06-29
 
 ### Fixed
