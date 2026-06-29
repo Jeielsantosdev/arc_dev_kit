@@ -1,12 +1,9 @@
 """Unit tests for arc_devkit.cli.flat — arc CLI commands."""
 
 import json
-import tempfile
 from decimal import Decimal
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from arc_devkit.cli.flat import app
@@ -172,7 +169,6 @@ class TestWallet:
 
 class TestConfig:
     def test_config_set_and_get(self, tmp_path, monkeypatch):
-        env_file = tmp_path / ".env"
         monkeypatch.chdir(tmp_path)
 
         # set

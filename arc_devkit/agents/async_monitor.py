@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable, Coroutine
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -295,7 +295,7 @@ class AsyncMonitorAgent(AsyncBaseAgent):
                     break
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue  # re-check task.done() on next iteration
                 yield event
                 count += 1

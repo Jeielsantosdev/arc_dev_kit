@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
@@ -151,7 +151,7 @@ class PortfolioAnalyzer:
         history_file = store / f"{safe_addr}.jsonl"
 
         record = self.to_dict(snapshot)
-        record["timestamp"] = datetime.now(tz=timezone.utc).isoformat()
+        record["timestamp"] = datetime.now(tz=UTC).isoformat()
 
         with history_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")

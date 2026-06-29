@@ -180,7 +180,7 @@ async def monitor_ws(
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=1.0)
                 await websocket.send_json(event)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send a heartbeat ping to detect dead connections
                 try:
                     await websocket.send_json({"event_type": "ping"})

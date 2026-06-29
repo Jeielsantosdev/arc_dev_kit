@@ -3,10 +3,9 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # load_abi
@@ -79,8 +78,9 @@ class TestCallView:
         assert result == "USDC"
 
     def test_checksum_applied_to_address(self):
-        from arc_devkit.contracts.loader import call_view
         from web3 import Web3
+
+        from arc_devkit.contracts.loader import call_view
 
         w3 = self._w3_with_result(0)
         abi: list = []

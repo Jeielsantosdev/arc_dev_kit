@@ -1,6 +1,5 @@
 """Unit tests for arc_devkit.deploy.deployer.ContractDeployer."""
 
-from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest

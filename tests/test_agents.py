@@ -94,7 +94,6 @@ class TestPaymentAgent:
         assert result == 21_000
 
     def test_wait_for_receipt_returns_receipt(self, mock_web3):
-        import time
 
         receipt = {"status": 1, "gasUsed": 21_000}
         mock_web3.eth.get_transaction_receipt.return_value = receipt

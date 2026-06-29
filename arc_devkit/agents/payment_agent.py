@@ -77,7 +77,7 @@ class PaymentAgent(BaseAgent):
 
     def _build_usdc_signed_tx(self, to: str, amount: Decimal) -> tuple:
         """Build and sign a USDC ERC-20 transfer tx; return (signed, gas_limit)."""
-        from arc_devkit.usdc.token import _ERC20_ABI, USDC_MULTIPLIER, USDC_ARC_TESTNET_ADDRESS
+        from arc_devkit.usdc.token import _ERC20_ABI, USDC_ARC_TESTNET_ADDRESS, USDC_MULTIPLIER
 
         usdc_address = Web3.to_checksum_address(USDC_ARC_TESTNET_ADDRESS)
         contract = self._w3.eth.contract(address=usdc_address, abi=_ERC20_ABI)

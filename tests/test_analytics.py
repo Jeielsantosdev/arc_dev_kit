@@ -4,9 +4,6 @@ import json
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -358,7 +355,7 @@ class TestPortfolioCLI:
 
 class TestBalanceHistory:
     def _make_snapshot(self, address="0x" + "a" * 40, tx_count=3):
-        from arc_devkit.analytics.portfolio import ActivityLevel, PortfolioSnapshot
+        from arc_devkit.analytics.portfolio import PortfolioSnapshot
 
         return PortfolioSnapshot(
             address=address,
@@ -390,7 +387,7 @@ class TestBalanceHistory:
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         path = tmp_path / f"{snap.address.lower()}.jsonl"
-        lines = [l for l in path.read_text().splitlines() if l.strip()]
+        lines = [line for line in path.read_text().splitlines() if line.strip()]
         assert len(lines) == 2
 
     def test_save_snapshot_includes_timestamp(self, tmp_path):

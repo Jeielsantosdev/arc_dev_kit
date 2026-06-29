@@ -100,7 +100,7 @@ class TestEventListenerPoll:
         log = _make_log(block_number=101)
         w3 = _make_w3(current_block=101, logs=[log])
         el = EventListener(w3=w3, from_block=100)
-        events = el.poll()
+        el.poll()
         w3.eth.get_logs.assert_called_once()
         call_params = w3.eth.get_logs.call_args[0][0]
         assert call_params["fromBlock"] == 100
@@ -182,7 +182,8 @@ class TestEventListenerPoll:
 
         received: list = []
         bad_cb = MagicMock(side_effect=RuntimeError("boom"))
-        good_cb = lambda e: received.append(e)
+        def good_cb(e):
+            received.append(e)
 
         fake_event = {"event": "Transfer", "address": "0x", "args": {}, "block_number": 1, "tx_hash": None, "log_index": 0}
         with patch.object(EventListener, "_decode_log", return_value=fake_event):

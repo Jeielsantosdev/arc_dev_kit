@@ -6,6 +6,40 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.5] — 2026-06-29
+
+### Fixed
+
+- **Lint (39 erros → 0)** — corrigidos todos os problemas reportados pelo ruff:
+  - Imports não ordenados (`I001`) em `__init__.py`, `payment_agent.py` e arquivos de teste
+  - Imports não usados (`F401`): `Coroutine` em `async_monitor.py`, `Decimal` em `test_deploy.py`, `patch` em `test_contracts.py`
+  - `asyncio.TimeoutError` substituído por builtin `TimeoutError` (`UP041`) em `async_monitor.py` e `api/routes/agents.py`
+  - Variáveis ambíguas/não usadas (`E741`, `F841`) nos testes
+  - Lambda atribuída a variável (`E731`) substituída por `def` em `test_events.py`
+
+### Changed
+
+- **`CLAUDE.md`** — atualizado para refletir todos os 11 módulos atuais do projeto (anteriormente descrevia apenas os 3 originais do v0.1.0)
+
+---
+
+## [0.4.4] — 2026-06-28
+
+### Added
+
+- **`arcdevkit config`** — gerenciamento de `.env` disponível como subcomando top-level (`arcdevkit config get/set/list`)
+- **`arcdevkit portfolio`** — análise de portfólio disponível como `arcdevkit portfolio analyze/report`
+- **`arcdevkit history`** — log de operações recentes como `arcdevkit history`
+- **`arcdevkit codegen`** — geração de scripts como `arcdevkit codegen "<descrição>"`
+- **`arcdevkit debug batch`** — análise em lote de múltiplas transações adicionada a `commands/debug.py`
+- `arcdevkit` agora cobre 100% da superfície de comandos da `arc` flat-CLI (zero duplicação de código — reutiliza sub-apps de `flat.py`)
+
+### Changed
+
+- **`README.md`** — reescrito: `arcdevkit` é o entry point primário documentado; todos os exemplos usam os nomes reais dos comandos
+
+---
+
 ## [0.4.3] — 2026-06-28
 
 ### Fixed

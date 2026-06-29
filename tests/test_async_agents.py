@@ -1,10 +1,8 @@
 """Tests for AsyncBaseAgent, AsyncMonitorAgent, and WebSocket endpoint."""
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -235,8 +233,9 @@ async def test_async_monitor_event_stream_yields():
 
 def test_websocket_monitor_accepts_connection():
     """WebSocket /agents/monitor/{address} must accept and send heartbeat pings."""
-    from arc_devkit.api.main import app
     from fastapi.testclient import TestClient
+
+    from arc_devkit.api.main import app
 
     with patch("arc_devkit.core.connection.get_web3", return_value=_mock_w3()), \
          patch("arc_devkit.agents.async_monitor.AsyncMonitorAgent.execute", new_callable=AsyncMock) as mock_exec:
@@ -345,7 +344,7 @@ async def test_async_monitor_webhook_called(tmp_path, respx_mock=None):
 
 
 def test_copilot_offline_ask_returns_mock(mock_anthropic):
-    from arc_devkit.copilot.agent import DevCopilot, _OFFLINE_RESPONSE
+    from arc_devkit.copilot.agent import _OFFLINE_RESPONSE, DevCopilot
 
     copilot = DevCopilot(offline=True)
     assert copilot.ask("What is Arc?") == _OFFLINE_RESPONSE
@@ -353,7 +352,7 @@ def test_copilot_offline_ask_returns_mock(mock_anthropic):
 
 
 def test_copilot_offline_stream_returns_mock(mock_anthropic):
-    from arc_devkit.copilot.agent import DevCopilot, _OFFLINE_RESPONSE
+    from arc_devkit.copilot.agent import _OFFLINE_RESPONSE, DevCopilot
 
     copilot = DevCopilot(offline=True)
     result = "".join(copilot.ask_stream("What is Arc?"))
