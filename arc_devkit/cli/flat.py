@@ -193,6 +193,7 @@ def balance(
     checksum = _validate_address(address)
     w3 = get_web3()
     from eth_typing import ChecksumAddress as _CA
+
     saldo = Decimal(str(w3.from_wei(w3.eth.get_balance(cast(_CA, checksum)), "ether")))
     nonce = w3.eth.get_transaction_count(cast(_CA, checksum))
 
@@ -397,9 +398,7 @@ def debug_batch(
     console.print(summary_table)
     ok = sum(1 for r in results if r.get("status") == "success")
     fail = len(results) - ok
-    console.print(
-        f"\n[green]✓ {ok} succeeded[/green]  [red]✗ {fail} failed[/red]"
-    )
+    console.print(f"\n[green]✓ {ok} succeeded[/green]  [red]✗ {fail} failed[/red]")
 
 
 @app.command()
@@ -426,9 +425,12 @@ def codegen(
     )
 
     with console.status("DevCopilot generating code...", spinner="dots"):
-        resposta = DevCopilot().ask(prompt)
+        resposta = DevCopilot(max_tokens=8000).ask(prompt)
 
     match = re.search(r"```python\s*(.*?)```", resposta, re.DOTALL)
+    if not match:
+        # Fallback: grab everything after ```python even if closing fence is missing
+        match = re.search(r"```python\s*(.*)", resposta, re.DOTALL)
     codigo = match.group(1).strip() if match else None
     explicacao = re.sub(r"```python.*?```", "", resposta, flags=re.DOTALL).strip()
 
@@ -970,9 +972,7 @@ def portfolio_report(
         except SystemExit:
             continue
 
-        with console.status(
-            f"Analyzing [cyan]{checksum[:10]}...[/cyan]", spinner="dots"
-        ):
+        with console.status(f"Analyzing [cyan]{checksum[:10]}...[/cyan]", spinner="dots"):
             snapshot = analyzer.analyze(checksum, scan_blocks=blocks)
 
         data = analyzer.to_dict(snapshot)
@@ -981,9 +981,7 @@ def portfolio_report(
 
         score_color = _SCORE_COLOR[snapshot.activity_score]
         score_icon = _SCORE_ICON[snapshot.activity_score]
-        usdc_str = (
-            f"{snapshot.usdc_balance:.4f}" if snapshot.usdc_balance is not None else "N/A"
-        )
+        usdc_str = f"{snapshot.usdc_balance:.4f}" if snapshot.usdc_balance is not None else "N/A"
 
         report_table.add_row(
             label or "—",

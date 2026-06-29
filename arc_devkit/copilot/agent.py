@@ -71,6 +71,7 @@ class DevCopilot:
         extra_context: str | None = None,
         model: str | None = None,
         offline: bool = False,
+        max_tokens: int | None = None,
     ) -> None:
         """
         Args:
@@ -79,10 +80,12 @@ class DevCopilot:
             model: Model override (default: ANTHROPIC_MODEL from .env).
             offline: When True, return a mock response without calling the API.
                      Useful for local tests and CI environments without an API key.
+            max_tokens: Override the default MAX_TOKENS limit for this instance.
         """
         self._offline = offline
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self.model = model or settings.anthropic_model
+        self._max_tokens = max_tokens if max_tokens is not None else self.MAX_TOKENS
         self._history: list[dict] = []
         self._cache: dict[str, tuple[str, float]] = {}  # key → (response, timestamp)
 
@@ -147,7 +150,7 @@ class DevCopilot:
 
         message = self._client.messages.create(
             model=self.model,
-            max_tokens=self.MAX_TOKENS,
+            max_tokens=self._max_tokens,
             system=self._system,
             messages=cast(list[MessageParam], list(self._history)),
         )
@@ -197,7 +200,7 @@ class DevCopilot:
 
         with self._client.messages.stream(
             model=self.model,
-            max_tokens=self.MAX_TOKENS,
+            max_tokens=self._max_tokens,
             system=self._system,
             messages=cast(list[MessageParam], self._history),
         ) as stream:
