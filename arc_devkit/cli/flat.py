@@ -193,6 +193,7 @@ def balance(
     checksum = _validate_address(address)
     w3 = get_web3()
     from eth_typing import ChecksumAddress as _CA
+
     saldo = Decimal(str(w3.from_wei(w3.eth.get_balance(cast(_CA, checksum)), "ether")))
     nonce = w3.eth.get_transaction_count(cast(_CA, checksum))
 
@@ -397,9 +398,7 @@ def debug_batch(
     console.print(summary_table)
     ok = sum(1 for r in results if r.get("status") == "success")
     fail = len(results) - ok
-    console.print(
-        f"\n[green]✓ {ok} succeeded[/green]  [red]✗ {fail} failed[/red]"
-    )
+    console.print(f"\n[green]✓ {ok} succeeded[/green]  [red]✗ {fail} failed[/red]")
 
 
 @app.command()
@@ -512,6 +511,56 @@ def config_set(
 
     _ENV_FILE.write_text("\n".join(linhas) + "\n")
     console.print(f"[green]✓[/green] {key}={value} saved to [bold]{_ENV_FILE}[/bold]")
+
+
+@config_app.command("keyring-set")
+def config_keyring_set() -> None:
+    """
+    Store ARC_PRIVATE_KEY in the OS keyring instead of plaintext .env.
+
+    Uses the system Keychain (macOS), Credential Manager (Windows), or
+    libsecret (Linux). Once stored, remove ARC_PRIVATE_KEY from your .env —
+    the toolkit falls back to the keyring automatically.
+    """
+    try:
+        import keyring
+    except ImportError:
+        console.print(
+            "[red]The 'keyring' package is not installed.[/red]\n"
+            "Install it with: [bold]pip install 'arc-devkit[security]'[/bold]"
+        )
+        raise typer.Exit(1)
+
+    from arc_devkit.config import KEYRING_KEY_NAME, KEYRING_SERVICE
+
+    valor = typer.prompt("Private key (0x...)", hide_input=True)
+    if not valor.strip():
+        console.print("[red]Empty key — aborted.[/red]")
+        raise typer.Exit(1)
+
+    keyring.set_password(KEYRING_SERVICE, KEYRING_KEY_NAME, valor.strip())
+    console.print(
+        "[green]✓[/green] Private key stored in the OS keyring.\n"
+        "[dim]Now remove ARC_PRIVATE_KEY from your .env — the keyring is used as fallback.[/dim]"
+    )
+
+
+@config_app.command("keyring-clear")
+def config_keyring_clear() -> None:
+    """Remove ARC_PRIVATE_KEY from the OS keyring."""
+    try:
+        import keyring
+    except ImportError:
+        console.print("[red]The 'keyring' package is not installed.[/red]")
+        raise typer.Exit(1)
+
+    from arc_devkit.config import KEYRING_KEY_NAME, KEYRING_SERVICE
+
+    try:
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY_NAME)
+        console.print("[green]✓[/green] Private key removed from the OS keyring.")
+    except Exception:
+        console.print("[dim]No private key stored in the keyring.[/dim]")
 
 
 @config_app.command("list")
@@ -970,9 +1019,7 @@ def portfolio_report(
         except SystemExit:
             continue
 
-        with console.status(
-            f"Analyzing [cyan]{checksum[:10]}...[/cyan]", spinner="dots"
-        ):
+        with console.status(f"Analyzing [cyan]{checksum[:10]}...[/cyan]", spinner="dots"):
             snapshot = analyzer.analyze(checksum, scan_blocks=blocks)
 
         data = analyzer.to_dict(snapshot)
@@ -981,9 +1028,7 @@ def portfolio_report(
 
         score_color = _SCORE_COLOR[snapshot.activity_score]
         score_icon = _SCORE_ICON[snapshot.activity_score]
-        usdc_str = (
-            f"{snapshot.usdc_balance:.4f}" if snapshot.usdc_balance is not None else "N/A"
-        )
+        usdc_str = f"{snapshot.usdc_balance:.4f}" if snapshot.usdc_balance is not None else "N/A"
 
         report_table.add_row(
             label or "—",
@@ -1088,6 +1133,28 @@ def init() -> None:
 
     linhas = [f"{k}={v}" for k, v in valores.items() if v]
     _ENV_FILE.write_text("\n".join(linhas) + "\n")
+
+    # Private key in .env: restrict file permissions and warn about safer options
+    if valores.get("ARC_PRIVATE_KEY"):
+        import os as _os
+        import stat as _stat
+
+        try:
+            _os.chmod(_ENV_FILE, 0o600)
+            console.print("[dim]Applied chmod 600 to .env (owner read/write only).[/dim]")
+        except Exception:
+            pass
+
+        mode = _ENV_FILE.stat().st_mode
+        if mode & (_stat.S_IRGRP | _stat.S_IROTH):
+            console.print(
+                "[bold yellow]⚠ Warning:[/bold yellow] your .env contains a private key and "
+                "is readable by other users. Run: [bold]chmod 600 .env[/bold]"
+            )
+        console.print(
+            "[dim]Tip: store the key in the OS keyring instead of .env with "
+            "[bold]arc config keyring-set[/bold] (requires pip install 'arc-devkit[security]').[/dim]"
+        )
 
     console.print(
         f"\n[bold green]✓[/bold green] File [bold]{_ENV_FILE}[/bold] created successfully!\n"

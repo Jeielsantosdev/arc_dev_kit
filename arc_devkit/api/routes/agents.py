@@ -2,8 +2,11 @@
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
+
+from arc_devkit.api.rate_limit import limiter
+from arc_devkit.core.validation import ValidationError, validate_address
 
 router = APIRouter()
 
@@ -58,7 +61,8 @@ class BlockResponse(BaseModel):
 
 
 @router.post("/wallet", response_model=WalletResponse, summary="Create new wallet")
-async def create_wallet() -> WalletResponse:
+@limiter.limit("10/minute")
+async def create_wallet(request: Request) -> WalletResponse:
     """
     Create a new EVM wallet for use on Arc.
 
@@ -79,12 +83,18 @@ async def create_wallet() -> WalletResponse:
     response_model=WalletResponse,
     summary="Query wallet balance",
 )
-async def get_balance(address: str) -> WalletResponse:
+@limiter.limit("60/minute")
+async def get_balance(request: Request, address: str) -> WalletResponse:
     """Return the native balance of an Arc address."""
     from arc_devkit.core.wallet import get_balance
 
     try:
-        resultado = get_balance(address)
+        checksum = validate_address(address)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        resultado = get_balance(checksum)
         return WalletResponse(
             address=str(resultado["address"]),
             balance_wei=str(resultado["balance_wei"]),
@@ -95,7 +105,8 @@ async def get_balance(address: str) -> WalletResponse:
 
 
 @router.post("/payment", response_model=PaymentResponse, summary="Execute payment")
-async def payment(body: PaymentRequest) -> PaymentResponse:
+@limiter.limit("20/minute")
+async def payment(request: Request, body: PaymentRequest) -> PaymentResponse:
     """
     Prepare and (optionally) send a payment on Arc.
 
@@ -105,9 +116,14 @@ async def payment(body: PaymentRequest) -> PaymentResponse:
     from arc_devkit.agents.payment_agent import PaymentAgent
 
     try:
+        destino = validate_address(body.to)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
         agente = PaymentAgent(private_key=body.private_key)
         resultado = agente.execute(
-            to=body.to, amount_usdc=body.amount_usdc, enviar=body.enviar, token=body.token
+            to=destino, amount_usdc=body.amount_usdc, enviar=body.enviar, token=body.token
         )
 
         if resultado.get("status") == "error":
@@ -129,7 +145,8 @@ async def payment(body: PaymentRequest) -> PaymentResponse:
 
 
 @router.get("/block", response_model=BlockResponse, summary="Current Arc block")
-async def get_block() -> BlockResponse:
+@limiter.limit("60/minute")
+async def get_block(request: Request) -> BlockResponse:
     """Return the most recent block number and chain ID of Arc."""
     from arc_devkit.core.connection import get_web3
 
@@ -180,7 +197,7 @@ async def monitor_ws(
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=1.0)
                 await websocket.send_json(event)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send a heartbeat ping to detect dead connections
                 try:
                     await websocket.send_json({"event_type": "ping"})

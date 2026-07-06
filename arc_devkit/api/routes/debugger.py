@@ -3,8 +3,11 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
+
+from arc_devkit.api.rate_limit import limiter
+from arc_devkit.core.validation import ValidationError, validate_tx_hash
 
 router = APIRouter()
 
@@ -24,7 +27,9 @@ class GasEstimateResponse(BaseModel):
 
 
 @router.get("/estimate", response_model=GasEstimateResponse, summary="Estimate gas cost")
+@limiter.limit("30/minute")
 async def estimate_gas(
+    request: Request,
     to: str = Query(..., description="Destination EVM address."),
     amount: float = Query(..., gt=0, description="Amount to transfer (in USDC)."),
     from_address: str = Query("", description="Sender address (optional)."),
@@ -71,7 +76,8 @@ async def get_history(
 
 
 @router.get("/{tx_hash}", summary="Analyze transaction")
-async def analyze(tx_hash: str) -> dict:
+@limiter.limit("20/minute")
+async def analyze(request: Request, tx_hash: str) -> dict:
     """
     Analyze an Arc transaction and return a complete diagnosis.
 
@@ -79,6 +85,11 @@ async def analyze(tx_hash: str) -> dict:
     to produce a natural-language report.
     """
     from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+    try:
+        tx_hash = validate_tx_hash(tx_hash)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
         analyzer = TxAnalyzer()

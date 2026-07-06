@@ -13,8 +13,8 @@ from arc_devkit.core.connection import get_web3
 logger = logging.getLogger(__name__)
 
 # Solidity revert selectors
-_REVERT_SELECTOR = bytes.fromhex("08c379a0")   # Error(string)
-_PANIC_SELECTOR = bytes.fromhex("4e487b71")    # Panic(uint256)
+_REVERT_SELECTOR = bytes.fromhex("08c379a0")  # Error(string)
+_PANIC_SELECTOR = bytes.fromhex("4e487b71")  # Panic(uint256)
 
 _PANIC_CODES: dict[int, str] = {
     0x00: "Generic compiler-inserted panic",
@@ -164,6 +164,7 @@ class TxAnalyzer:
             self._w3 = w3
         elif rpc_url:
             from web3.middleware import ExtraDataToPOAMiddleware
+
             _w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 10}))
             _w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
             self._w3 = _w3
@@ -178,6 +179,7 @@ class TxAnalyzer:
         self,
         tx_hash: str,
         abi: list[dict] | None = None,
+        use_ai: bool = True,
     ) -> dict:
         """
         Analyze a transaction and return a complete diagnosis.
@@ -185,11 +187,20 @@ class TxAnalyzer:
         Args:
             tx_hash: Transaction hash (0x... format).
             abi: Optional contract ABI for decoding input data and custom errors.
+            use_ai: When False, skip the DevCopilot natural-language summary and
+                    return only on-chain data (used by Copilot tools to avoid
+                    recursive AI calls).
 
         Returns:
             Dict with: hash, status, summary, custo_usdc, revert_reason,
             decoded_input, error, and raw_data.
+
+        Raises:
+            ValidationError: If tx_hash is not 0x + 64 hex chars.
         """
+        from arc_devkit.core.validation import validate_tx_hash
+
+        tx_hash = validate_tx_hash(tx_hash)
         logger.info("Analyzing transaction: %s", tx_hash)
 
         try:
@@ -244,19 +255,19 @@ class TxAnalyzer:
 
         logger.debug("Data collected: %s", data_summary)
 
-        try:
-            from arc_devkit.copilot.agent import DevCopilot
+        summary = f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
+        if revert_reason:
+            summary += f" | Revert: {revert_reason}"
 
-            copilot = DevCopilot()
-            prompt = _ANALYSIS_PROMPT.format(data=data_summary)
-            summary = copilot.ask(prompt)
-        except Exception as exc:
-            logger.warning("AI analysis unavailable: %s", exc)
-            summary = (
-                f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
-            )
-            if revert_reason:
-                summary += f" | Revert: {revert_reason}"
+        if use_ai:
+            try:
+                from arc_devkit.copilot.agent import DevCopilot
+
+                copilot = DevCopilot()
+                prompt = _ANALYSIS_PROMPT.format(data=data_summary)
+                summary = copilot.ask(prompt)
+            except Exception as exc:
+                logger.warning("AI analysis unavailable: %s", exc)
 
         return {
             "hash": tx_hash,
@@ -364,7 +375,13 @@ class TxAnalyzer:
                     normalized[k] = str(v)
                 elif isinstance(v, (list, tuple)):
                     normalized[k] = [
-                        ("0x" + x.hex() if isinstance(x, bytes) else str(x) if isinstance(x, int) else x)
+                        (
+                            "0x" + x.hex()
+                            if isinstance(x, bytes)
+                            else str(x)
+                            if isinstance(x, int)
+                            else x
+                        )
                         for x in v
                     ]
                 else:

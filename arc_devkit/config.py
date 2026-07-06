@@ -3,10 +3,15 @@
 import logging
 import os
 from dataclasses import dataclass
+from decimal import Decimal
 
 from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv(usecwd=True))
+
+# Keyring service/entry names used to store the private key outside .env
+KEYRING_SERVICE = "arc-devkit"
+KEYRING_KEY_NAME = "ARC_PRIVATE_KEY"
 
 
 @dataclass(frozen=True)
@@ -20,6 +25,36 @@ class Settings:
     arc_private_key: str | None
     log_level: str
     anthropic_model: str
+    env: str = "development"
+    max_gas_price_gwei: Decimal | None = None
+    max_spend_per_day_usdc: Decimal | None = None
+    agent_allowed_recipients: tuple[str, ...] = ()
+
+    @property
+    def is_production(self) -> bool:
+        """True when ENV=production — enables fail-safe security defaults."""
+        return self.env == "production"
+
+
+def _load_key_from_keyring() -> str | None:
+    """Read the private key from the OS keyring, if the keyring lib is installed."""
+    try:
+        import keyring
+
+        return keyring.get_password(KEYRING_SERVICE, KEYRING_KEY_NAME) or None
+    except Exception:
+        return None
+
+
+def _parse_optional_decimal(name: str) -> Decimal | None:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return Decimal(raw)
+    except Exception:
+        logging.getLogger(__name__).warning("Invalid %s=%r — ignoring.", name, raw)
+        return None
 
 
 def _load_settings() -> Settings:
@@ -44,14 +79,25 @@ def _load_settings() -> Settings:
     # Support multiple comma-separated RPCs
     rpc_urls = tuple(u.strip() for u in rpc_url.split(",") if u.strip())
 
+    # Private key resolution: env var > OS keyring > None (read-only mode)
+    private_key = os.getenv("ARC_PRIVATE_KEY", "").strip() or _load_key_from_keyring()
+
+    whitelist = tuple(
+        a.strip() for a in os.getenv("AGENT_ALLOWED_RECIPIENTS", "").split(",") if a.strip()
+    )
+
     return Settings(
         anthropic_api_key=api_key,
         arc_rpc_url=rpc_urls[0],  # Primary URL
         arc_rpc_urls=rpc_urls,
         arc_chain_id=int(os.getenv("ARC_CHAIN_ID", "5042002")),
-        arc_private_key=os.getenv("ARC_PRIVATE_KEY", "").strip() or None,
+        arc_private_key=private_key,
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+        env=os.getenv("ENV", "development").strip().lower() or "development",
+        max_gas_price_gwei=_parse_optional_decimal("MAX_GAS_PRICE_GWEI"),
+        max_spend_per_day_usdc=_parse_optional_decimal("MAX_SPEND_PER_DAY_USDC"),
+        agent_allowed_recipients=whitelist,
     )
 
 

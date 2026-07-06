@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
@@ -34,11 +34,11 @@ class PortfolioSnapshot:
     """Point-in-time view of a wallet's portfolio on Arc."""
 
     address: str
-    native_balance: Decimal          # ARC (18 decimals, converted to ether)
-    usdc_balance: Decimal | None     # USDC (6 decimals); None if contract unavailable
-    nonce: int                       # total txs ever sent from this address
+    native_balance: Decimal  # ARC (18 decimals, converted to ether)
+    usdc_balance: Decimal | None  # USDC (6 decimals); None if contract unavailable
+    nonce: int  # total txs ever sent from this address
     recent_txs: list[TransactionSummary]
-    blocks_scanned: int              # actual number of blocks inspected
+    blocks_scanned: int  # actual number of blocks inspected
     blocks_from: int
     blocks_to: int
     activity_score: ActivityLevel
@@ -98,8 +98,15 @@ class PortfolioAnalyzer:
 
         Returns:
             PortfolioSnapshot with balances, transaction list, and activity score.
+
+        Raises:
+            ValidationError: If scan_blocks exceeds the safety cap (10,000) or
+                             the address is invalid.
         """
-        checksum = Web3.to_checksum_address(address)
+        from arc_devkit.core.validation import validate_address, validate_block_range
+
+        scan_blocks = validate_block_range(scan_blocks)
+        checksum = Web3.to_checksum_address(validate_address(address))
         logger.info("Analyzing portfolio for %s (last %d blocks)", checksum, scan_blocks)
 
         native_wei = self._w3.eth.get_balance(checksum)
@@ -151,7 +158,7 @@ class PortfolioAnalyzer:
         history_file = store / f"{safe_addr}.jsonl"
 
         record = self.to_dict(snapshot)
-        record["timestamp"] = datetime.now(tz=timezone.utc).isoformat()
+        record["timestamp"] = datetime.now(tz=UTC).isoformat()
 
         with history_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
@@ -289,9 +296,7 @@ class PortfolioAnalyzer:
                 except Exception:
                     pass
 
-                value_arc = Decimal(
-                    str(self._w3.from_wei(tx.get("value", 0), "ether"))
-                )
+                value_arc = Decimal(str(self._w3.from_wei(tx.get("value", 0), "ether")))
 
                 results.append(
                     TransactionSummary(
