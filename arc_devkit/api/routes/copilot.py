@@ -2,9 +2,12 @@
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+from arc_devkit.api.rate_limit import limiter
+from arc_devkit.core.validation import MAX_PROMPT_CHARS
 
 router = APIRouter()
 
@@ -12,7 +15,12 @@ router = APIRouter()
 class AskRequest(BaseModel):
     """Request body for the /copilot/ask endpoint."""
 
-    prompt: str = Field(..., min_length=3, description="Question or instruction.")
+    prompt: str = Field(
+        ...,
+        min_length=3,
+        max_length=MAX_PROMPT_CHARS,
+        description="Question or instruction.",
+    )
 
 
 class AskResponse(BaseModel):
@@ -23,7 +31,8 @@ class AskResponse(BaseModel):
 
 
 @router.post("/ask", response_model=AskResponse, summary="Ask the Dev Copilot")
-async def ask(body: AskRequest) -> AskResponse:
+@limiter.limit("20/minute")
+async def ask(request: Request, body: AskRequest) -> AskResponse:
     """
     Send a question to Dev Copilot and return the complete response.
 
@@ -40,8 +49,38 @@ async def ask(body: AskRequest) -> AskResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+class AgentResponse(BaseModel):
+    """Agentic Dev Copilot response."""
+
+    response: str = Field(..., description="Final response after tool use.")
+    model: str = Field(..., description="Model identifier used.")
+    tool_calls: list[dict] = Field(default_factory=list, description="Tools invoked.")
+    iterations: int = Field(0, description="Tool-use round-trips executed.")
+
+
+@router.post("/agent", response_model=AgentResponse, summary="Agentic Dev Copilot (tool use)")
+@limiter.limit("10/minute")
+async def agent(request: Request, body: AskRequest) -> AgentResponse:
+    """
+    Answer using READ-ONLY on-chain tools (balance, gas, tx debugging, view calls).
+
+    The model decides which tools to call; the toolkit executes them locally and
+    the loop stops at a final answer or after the iteration limit. Tools never
+    sign or broadcast transactions.
+    """
+    from arc_devkit.copilot.agent import DevCopilot
+
+    try:
+        copilot = DevCopilot()
+        resultado = copilot.run_agent(body.prompt)
+        return AgentResponse(model=copilot.model, **resultado)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.post("/ask/stream", summary="Dev Copilot SSE streaming")
-async def ask_stream(body: AskRequest) -> StreamingResponse:
+@limiter.limit("10/minute")
+async def ask_stream(request: Request, body: AskRequest) -> StreamingResponse:
     """
     Send a question and stream the response token by token via Server-Sent Events.
 
