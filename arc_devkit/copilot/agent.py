@@ -147,7 +147,10 @@ class DevCopilot:
             logger.debug("Offline mode — returning mock response.")
             return _OFFLINE_RESPONSE
 
-        cache_key = hashlib.md5((self.model + self._system + prompt).encode()).hexdigest()
+        # MD5 is used only as a cache key, not for security (B324)
+        cache_key = hashlib.md5(
+            (self.model + self._system + prompt).encode(), usedforsecurity=False
+        ).hexdigest()
         cached, ts = self._cache.get(cache_key, ("", 0.0))
         if cached and (time.time() - ts) < _CACHE_TTL_SECONDS:
             logger.debug("Cache hit for prompt: %.40s...", prompt)
