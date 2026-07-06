@@ -7,16 +7,15 @@ name = "arc-devkit"
 version = "0.4.7"
 description = "Plataforma open source de ferramentas para desenvolvedores da Arc blockchain (Circle)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
-    { name = "Arc DevKit Contributors" }
+    { name = "Jeielsantosdev", email = "jeielsantos.ti@gmail.com" }
 ]
 requires-python = ">=3.11"
 keywords = ["arc", "blockchain", "circle", "usdc", "web3", "ai", "anthropic"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -45,9 +44,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Jeielsantosdev/arc_dev_kit"
-Repository = "https://github.com/Jeielsantosdev/arc_dev_kit"
-Issues = "https://github.com/Jeielsantosdev/arc_dev_kit/issues"
+Homepage = "https://github.com/Jeielsantosdev/arc-devkit"
+Repository = "https://github.com/Jeielsantosdev/arc-devkit"
+"Bug Tracker" = "https://github.com/Jeielsantosdev/arc-devkit/issues"
 
 [project.optional-dependencies]
 dev = [

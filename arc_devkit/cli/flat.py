@@ -425,9 +425,12 @@ def codegen(
     )
 
     with console.status("DevCopilot generating code...", spinner="dots"):
-        resposta = DevCopilot().ask(prompt)
+        resposta = DevCopilot(max_tokens=8000).ask(prompt)
 
     match = re.search(r"```python\s*(.*?)```", resposta, re.DOTALL)
+    if not match:
+        # Fallback: grab everything after ```python even if closing fence is missing
+        match = re.search(r"```python\s*(.*)", resposta, re.DOTALL)
     codigo = match.group(1).strip() if match else None
     explicacao = re.sub(r"```python.*?```", "", resposta, flags=re.DOTALL).strip()
 
