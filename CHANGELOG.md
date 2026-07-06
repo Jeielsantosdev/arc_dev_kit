@@ -6,6 +6,37 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.7] — 2026-07-06
+
+### Added — Agentic
+
+- **DevCopilot tool use** — new `run_agent()` method: the model can call read-only on-chain tools (`get_balance`, `get_block_info`, `estimate_gas`, `debug_transaction`, `call_view_function`) in a tool-use loop with a 10-iteration circuit breaker; exposed via `arcdevkit copilot agent "..."` and `POST /copilot/agent`
+- **Declarative triggers on `MonitorAgent`** — `on_low_balance()` (fires once per crossing, re-arms on recovery), `on_incoming_transfer()`, `on_block_interval()`; trigger failures are isolated from the polling loop
+- **`AutoRefueler`** (`agents/autonomous.py`) — keeps a target address funded via guarded automatic top-ups
+- **Replace-by-fee** — `PaymentAgent.speed_up(tx_hash)` resends a stuck tx with +10% gas; `execute(..., rbf=True)` applies it automatically on receipt timeout
+- **`EventBus`** (`agents/event_bus.py`) — async pub/sub for inter-agent communication with isolated handler failures
+- **`CoordinatorAgent`** (`agents/coordinator.py`) — plans workflows from natural-language goals using the agentic Copilot; `maintain_balance()` declarative workflow
+- **`AgentDashboard`** — live terminal panel (`rich.Live`) via `arcdevkit agent dashboard <addrs...>`
+
+### Added — Security
+
+- **Autonomy guardrails** (`agents/guardrails.py`) — daily spend limit (`MAX_SPEND_PER_DAY_USDC`), recipient whitelist (`AGENT_ALLOWED_RECIPIENTS`), JSON-lines audit log (`~/.arc_devkit/audit.log`), kill switch (`arcdevkit agent stop` / `resume` / `audit`)
+- **Mandatory pre-broadcast simulation** — `PaymentAgent.execute(enviar=True)` now aborts with `simulation_failed` when `eth_call` detects a revert (previously the simulation result was ignored); `force=True` bypasses
+- **Gas price ceiling** — `MAX_GAS_PRICE_GWEI` rejects transactions above the configured limit
+- **Shared input validation** (`core/validation.py`) — addresses, tx hashes, prompts (20k chars), amounts, ABIs, block ranges; applied across CLI, API, `TxAnalyzer`, and `PortfolioAnalyzer`
+- **API hardening** — 64 KB body limit (413), `API_KEY` mandatory when `ENV=production` (503), HTTP→HTTPS redirect in production, security headers (`X-Content-Type-Options`, `X-Frame-Options`, HSTS), per-route rate limiting on all endpoints, failed-auth logging with client IP, 400 (not 500) for invalid addresses/hashes
+- **OS keyring support** — `arc config keyring-set` / `keyring-clear` store `ARC_PRIVATE_KEY` outside `.env` (install with `pip install "arc-devkit[security]"`); `init` applies `chmod 600` and warns when a private key lands in `.env`
+- **Prompt-injection mitigation** — tool results are truncated and wrapped as untrusted on-chain data before returning to the model
+- **CI security job** — `bandit` static analysis and `pip-audit` dependency CVE scan
+
+### Changed
+
+- `TxAnalyzer.analyze()` validates the tx hash format and accepts `use_ai=False` for data-only analysis (used by Copilot tools to avoid recursion)
+- `load_abi()` validates ABI structure before returning
+- `PortfolioAnalyzer.analyze()` caps `scan_blocks` at 10,000
+
+---
+
 ## [0.4.3] — 2026-06-28
 
 ### Fixed

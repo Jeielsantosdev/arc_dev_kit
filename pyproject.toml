@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arc-devkit"
-version = "0.4.4"
+version = "0.4.7"
 description = "Plataforma open source de ferramentas para desenvolvedores da Arc blockchain (Circle)"
 readme = "README.md"
 license = { text = "MIT" }
@@ -56,8 +56,14 @@ dev = [
     "pytest-cov>=4.0",
     "ruff>=0.6",
     "mypy>=1.8",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
     # httpx já está nas deps principais; listado aqui para clareza nos testes
     "httpx>=0.27",
+]
+# Armazenamento da chave privada no keyring do SO (arc config keyring-set)
+security = [
+    "keyring>=24",
 ]
 
 [project.scripts]
