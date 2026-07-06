@@ -98,8 +98,15 @@ class PortfolioAnalyzer:
 
         Returns:
             PortfolioSnapshot with balances, transaction list, and activity score.
+
+        Raises:
+            ValidationError: If scan_blocks exceeds the safety cap (10,000) or
+                             the address is invalid.
         """
-        checksum = Web3.to_checksum_address(address)
+        from arc_devkit.core.validation import validate_address, validate_block_range
+
+        scan_blocks = validate_block_range(scan_blocks)
+        checksum = Web3.to_checksum_address(validate_address(address))
         logger.info("Analyzing portfolio for %s (last %d blocks)", checksum, scan_blocks)
 
         native_wei = self._w3.eth.get_balance(checksum)

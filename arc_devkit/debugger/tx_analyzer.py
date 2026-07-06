@@ -179,6 +179,7 @@ class TxAnalyzer:
         self,
         tx_hash: str,
         abi: list[dict] | None = None,
+        use_ai: bool = True,
     ) -> dict:
         """
         Analyze a transaction and return a complete diagnosis.
@@ -186,11 +187,20 @@ class TxAnalyzer:
         Args:
             tx_hash: Transaction hash (0x... format).
             abi: Optional contract ABI for decoding input data and custom errors.
+            use_ai: When False, skip the DevCopilot natural-language summary and
+                    return only on-chain data (used by Copilot tools to avoid
+                    recursive AI calls).
 
         Returns:
             Dict with: hash, status, summary, custo_usdc, revert_reason,
             decoded_input, error, and raw_data.
+
+        Raises:
+            ValidationError: If tx_hash is not 0x + 64 hex chars.
         """
+        from arc_devkit.core.validation import validate_tx_hash
+
+        tx_hash = validate_tx_hash(tx_hash)
         logger.info("Analyzing transaction: %s", tx_hash)
 
         try:
@@ -245,17 +255,19 @@ class TxAnalyzer:
 
         logger.debug("Data collected: %s", data_summary)
 
-        try:
-            from arc_devkit.copilot.agent import DevCopilot
+        summary = f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
+        if revert_reason:
+            summary += f" | Revert: {revert_reason}"
 
-            copilot = DevCopilot()
-            prompt = _ANALYSIS_PROMPT.format(data=data_summary)
-            summary = copilot.ask(prompt)
-        except Exception as exc:
-            logger.warning("AI analysis unavailable: %s", exc)
-            summary = f"Status: {status_str} | Gas used: {gas_used} | Cost: {cost_decimal} USDC"
-            if revert_reason:
-                summary += f" | Revert: {revert_reason}"
+        if use_ai:
+            try:
+                from arc_devkit.copilot.agent import DevCopilot
+
+                copilot = DevCopilot()
+                prompt = _ANALYSIS_PROMPT.format(data=data_summary)
+                summary = copilot.ask(prompt)
+            except Exception as exc:
+                logger.warning("AI analysis unavailable: %s", exc)
 
         return {
             "hash": tx_hash,

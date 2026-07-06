@@ -34,11 +34,13 @@ def load_abi(path: str | Path) -> list[dict]:
 
     data = json.loads(arquivo.read_text(encoding="utf-8"))
 
+    from arc_devkit.core.validation import validate_abi
+
     if isinstance(data, list):
-        return data
+        return validate_abi(data)
     if isinstance(data, dict):
         if "abi" in data:
-            return list(data["abi"])
+            return validate_abi(list(data["abi"]))
         raise ValueError(f"JSON does not contain 'abi' key: {arquivo}")
     raise ValueError(f"Invalid ABI format in: {arquivo}")
 

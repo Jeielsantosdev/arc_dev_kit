@@ -1,24 +1,32 @@
 """Arc DevKit REST API — FastAPI."""
 
 import logging
+import os
 import time
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security.api_key import APIKeyHeader
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from arc_devkit import __version__
+from arc_devkit.api.rate_limit import limiter
 from arc_devkit.api.routes import agents, copilot, debugger
 from arc_devkit.api.routes.agents import ws_router as agents_ws_router
 
 logger = logging.getLogger(__name__)
 
-# Rate limiter — identifies requests by client IP
-limiter = Limiter(key_func=get_remote_address)
+# Maximum accepted request body size (DoS protection)
+MAX_BODY_BYTES = 64 * 1024  # 64 KB
+
+
+def _is_production() -> bool:
+    """Read ENV at request time so tests can toggle it."""
+    return os.getenv("ENV", "development").strip().lower() == "production"
+
 
 _DESCRIPTION = """\
 **Arc DevKit** — developer toolkit for the [Arc blockchain](https://arc.io) by Circle.
@@ -108,16 +116,56 @@ def _get_api_key() -> str | None:
     return os.getenv("API_KEY", "").strip() or None
 
 
-def verify_api_key(api_key: str | None = Security(_API_KEY_HEADER)) -> None:
+def verify_api_key(request: Request, api_key: str | None = Security(_API_KEY_HEADER)) -> None:
     """
     Verify the API key if API_KEY is set in the environment.
 
-    If API_KEY is not defined, authentication is disabled
-    (useful for local development).
+    In development, a missing API_KEY disables authentication. In production
+    (ENV=production), API_KEY is mandatory — requests fail with 503 until it
+    is configured, so authentication can never be silently disabled.
     """
     required_key = _get_api_key()
-    if required_key and api_key != required_key:
+
+    if not required_key:
+        if _is_production():
+            logger.error("API_KEY is not configured but ENV=production — refusing request.")
+            raise HTTPException(
+                status_code=503,
+                detail="API_KEY must be configured when ENV=production.",
+            )
+        return
+
+    if api_key != required_key:
+        client_ip = request.client.host if request.client else "unknown"
+        logger.warning("Failed authentication attempt: ip=%s path=%s", client_ip, request.url.path)
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+
+# Security middleware: HTTPS redirect (prod), body size limit, security headers
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    if _is_production() and request.url.scheme == "http":
+        forwarded_proto = request.headers.get("x-forwarded-proto", "")
+        if forwarded_proto != "https":
+            https_url = request.url.replace(scheme="https")
+            return RedirectResponse(url=str(https_url), status_code=308)
+
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_BODY_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Request body too large (max {MAX_BODY_BYTES} bytes)."},
+        )
+
+    response = await call_next(request)
+
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    if _is_production():
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+        )
+    return response
 
 
 # Structured logging middleware

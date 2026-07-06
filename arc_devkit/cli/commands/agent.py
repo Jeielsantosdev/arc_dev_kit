@@ -135,6 +135,106 @@ def pay(
 
 
 @app.command()
+def dashboard(
+    addresses: list[str] = typer.Argument(..., help="One or more EVM addresses to watch."),
+    interval: int = typer.Option(15, "--interval", "-i", help="Polling interval in seconds."),
+    max_iter: int = typer.Option(0, "--max", help="Maximum iterations (0 = infinite)."),
+) -> None:
+    """
+    Live terminal dashboard: watched balances and events updated in place.
+
+    Press Ctrl+C to stop.
+
+    Example:
+      arcdevkit agent dashboard 0xWallet1... 0xWallet2... --interval 10
+    """
+    from arc_devkit.agents.dashboard import AgentDashboard
+    from arc_devkit.agents.monitor_agent import MonitorAgent
+
+    monitor = MonitorAgent(watched_addresses=addresses, interval_seconds=interval)
+    try:
+        AgentDashboard(monitor).run(max_iterations=max_iter)
+    except KeyboardInterrupt:
+        monitor.stop()
+        console.print("\n[dim]Dashboard stopped.[/dim]\n")
+
+
+@app.command()
+def stop() -> None:
+    """
+    KILL SWITCH: halt all autonomous agents immediately.
+
+    Creates ~/.arc_devkit/agents.stop — every guarded autonomous action
+    (auto-refuel, triggers, scheduled payments) refuses to run while it exists.
+    Use 'arcdevkit agent resume' to re-enable.
+    """
+    from arc_devkit.agents.guardrails import activate_kill_switch
+
+    path = activate_kill_switch()
+    console.print(
+        Panel.fit(
+            f"[bold red]■ Kill switch ACTIVATED[/bold red]\n"
+            f"[dim]{path}[/dim]\n\n"
+            "All autonomous agent actions are halted.\n"
+            "Run [bold]arcdevkit agent resume[/bold] to re-enable.",
+            border_style="red",
+        )
+    )
+
+
+@app.command()
+def resume() -> None:
+    """Clear the kill switch and re-enable autonomous agents."""
+    from arc_devkit.agents.guardrails import clear_kill_switch
+
+    if clear_kill_switch():
+        console.print(
+            "[bold green]✓ Kill switch cleared — autonomous agents re-enabled.[/bold green]"
+        )
+    else:
+        console.print("[dim]Kill switch was not active.[/dim]")
+
+
+@app.command()
+def audit(
+    limit: int = typer.Option(20, "--limit", "-n", help="Number of records to display."),
+) -> None:
+    """Show the most recent autonomous-action audit records (~/.arc_devkit/audit.log)."""
+    import json as _json
+    from pathlib import Path
+
+    audit_file = Path.home() / ".arc_devkit" / "audit.log"
+    if not audit_file.exists():
+        console.print("[dim]No audit records yet.[/dim]")
+        return
+
+    lines = audit_file.read_text().strip().splitlines()[-limit:]
+    tabela = Table(title="Autonomous Actions Audit", header_style="bold yellow")
+    tabela.add_column("Timestamp", style="dim")
+    tabela.add_column("Agent")
+    tabela.add_column("Trigger")
+    tabela.add_column("Action")
+    tabela.add_column("Details", overflow="fold")
+
+    for line in lines:
+        try:
+            rec = _json.loads(line)
+        except Exception:
+            continue
+        details = {
+            k: v for k, v in rec.items() if k not in {"timestamp", "agent", "trigger", "action"}
+        }
+        tabela.add_row(
+            rec.get("timestamp", ""),
+            rec.get("agent", ""),
+            rec.get("trigger", ""),
+            rec.get("action", ""),
+            _json.dumps(details, ensure_ascii=False),
+        )
+    console.print(tabela)
+
+
+@app.command()
 def monitor(
     address: str = typer.Argument(..., help="EVM address to monitor."),
     interval: int = typer.Option(15, "--interval", "-i", help="Polling interval in seconds."),

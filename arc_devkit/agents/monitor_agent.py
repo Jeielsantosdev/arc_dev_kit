@@ -80,6 +80,13 @@ class MonitorAgent(BaseAgent):
         self._state_file = Path(state_file) if state_file else None
         self._webhook_url = webhook_url
 
+        # Declarative triggers for autonomous reactions
+        self._low_balance_triggers: list[tuple[int, Callable[[dict], None]]] = []
+        self._low_balance_fired: dict[tuple[str, int], bool] = {}
+        self._incoming_transfer_actions: list[Callable[[dict], None]] = []
+        self._block_interval_triggers: list[tuple[int, Callable[[dict], None]]] = []
+        self._last_trigger_block: dict[int, int] = {}
+
         self._usdc_contract = None
         if usdc_contract_address:
             self._usdc_contract = self._w3.eth.contract(
@@ -105,6 +112,72 @@ class MonitorAgent(BaseAgent):
     def watched_addresses(self) -> list[str]:
         """List of monitored wallet addresses."""
         return list(self._watched)
+
+    # ------------------------------------------------------------------
+    # Declarative triggers (autonomous reactions)
+    # ------------------------------------------------------------------
+
+    def on_low_balance(self, threshold_wei: int, action: Callable[[dict], None]) -> None:
+        """
+        Register an action fired when a watched balance drops below threshold_wei.
+
+        The action receives {"address", "balance_wei", "threshold_wei", "trigger"}.
+        It fires once per crossing (re-arms after the balance recovers above the
+        threshold), so a persistently low balance does not fire repeatedly.
+        """
+        self._low_balance_triggers.append((threshold_wei, action))
+
+    def on_incoming_transfer(self, action: Callable[[dict], None]) -> None:
+        """Register an action fired for every credit event (native or ERC-20)."""
+        self._incoming_transfer_actions.append(action)
+
+    def on_block_interval(self, n_blocks: int, action: Callable[[dict], None]) -> None:
+        """Register an action fired every n_blocks new blocks."""
+        if n_blocks <= 0:
+            raise ValueError("n_blocks must be positive.")
+        self._block_interval_triggers.append((n_blocks, action))
+
+    def _run_action(self, action: Callable[[dict], None], payload: dict) -> None:
+        """Run a trigger action, isolating failures from the monitor loop."""
+        try:
+            action(payload)
+        except Exception as exc:
+            logger.error("Trigger action failed (%s): %s", payload.get("trigger"), exc)
+
+    def _evaluate_low_balance(self, addr: str, balance_wei: int) -> None:
+        for idx, (threshold, action) in enumerate(self._low_balance_triggers):
+            key = (addr, idx)
+            below = balance_wei < threshold
+            if below and not self._low_balance_fired.get(key):
+                self._low_balance_fired[key] = True
+                self.log(f"[trigger] low balance on {addr[:10]}: {balance_wei} < {threshold}")
+                self._run_action(
+                    action,
+                    {
+                        "trigger": "on_low_balance",
+                        "address": addr,
+                        "balance_wei": str(balance_wei),
+                        "threshold_wei": str(threshold),
+                    },
+                )
+            elif not below:
+                self._low_balance_fired[key] = False
+
+    def _evaluate_block_interval(self, current_block: int) -> None:
+        for idx, (n_blocks, action) in enumerate(self._block_interval_triggers):
+            last = self._last_trigger_block.get(idx, 0)
+            if last == 0:
+                self._last_trigger_block[idx] = current_block
+            elif current_block - last >= n_blocks:
+                self._last_trigger_block[idx] = current_block
+                self._run_action(
+                    action,
+                    {
+                        "trigger": "on_block_interval",
+                        "block_number": current_block,
+                        "interval": n_blocks,
+                    },
+                )
 
     def _save_state(self) -> None:
         """Persist current balances and block cursor to the state file."""
@@ -138,10 +211,13 @@ class MonitorAgent(BaseAgent):
             logger.warning("Webhook delivery failed (%s): %s", self._webhook_url, exc)
 
     def _emit(self, event: dict, callback: Callable[[dict], None] | None) -> None:
-        """Fire callback and/or webhook for a detected event."""
+        """Fire callback, webhook, and incoming-transfer triggers for an event."""
         if callback:
             callback(event)
         self._fire_webhook(event)
+        if event.get("type") == "credit":
+            for action in self._incoming_transfer_actions:
+                self._run_action(action, {**event, "trigger": "on_incoming_transfer"})
 
     def _scan_erc20_events(
         self,
@@ -243,10 +319,21 @@ class MonitorAgent(BaseAgent):
         self.log(f"Monitoring {len(self._watched)} wallet(s) every {self._interval}s")
 
         while self._running:
+            # Kill switch halts the loop (and any autonomous triggers) immediately
+            from arc_devkit.agents.guardrails import kill_switch_active
+
+            if kill_switch_active():
+                self.log("Kill switch active — stopping monitor loop.")
+                self._running = False
+                self._save_state()
+                return {"status": "killed", "iterations": iterations}
+
             for addr in self._watched:
                 current_balance = self._w3.eth.get_balance(cast(ChecksumAddress, addr))
                 prev_balance = self._last_balances.get(addr, current_balance)
                 delta = current_balance - prev_balance
+
+                self._evaluate_low_balance(addr, current_balance)
 
                 if delta != 0 and abs(delta) >= self._min_change_wei:
                     event = {
@@ -260,6 +347,13 @@ class MonitorAgent(BaseAgent):
                     self.log(f"[{addr[:10]}] Change: {delta:+d} wei ({event['type']})")
                     self._emit(event, callback)
                     self._last_balances[addr] = current_balance
+
+            # Block-interval triggers
+            if self._block_interval_triggers:
+                try:
+                    self._evaluate_block_interval(self._w3.eth.block_number)
+                except Exception as exc:
+                    logger.debug("Block-interval trigger skipped: %s", exc)
 
             # Scan ERC-20 Transfer events for the blocks elapsed since last check
             if self._usdc_contract:

@@ -6,48 +6,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.4.6] — 2026-06-29
+## [0.4.7] — 2026-07-06
 
-### Fixed
+### Added — Agentic
 
-- **`codegen` — truncamento de resposta** — `DevCopilot.MAX_TOKENS` era 2000, insuficiente para scripts completos; o modelo cortava a resposta antes do fechamento do bloco ` ```python `, causando "Could not extract a code block".
-  - `DevCopilot.__init__()` aceita agora `max_tokens: int | None` para sobrescrever o limite por instância
-  - `codegen` instancia `DevCopilot(max_tokens=8000)`, dando espaço suficiente para scripts completos
-  - Regex de fallback adicionado: extrai código mesmo quando o fence de fechamento está ausente
+- **DevCopilot tool use** — new `run_agent()` method: the model can call read-only on-chain tools (`get_balance`, `get_block_info`, `estimate_gas`, `debug_transaction`, `call_view_function`) in a tool-use loop with a 10-iteration circuit breaker; exposed via `arcdevkit copilot agent "..."` and `POST /copilot/agent`
+- **Declarative triggers on `MonitorAgent`** — `on_low_balance()` (fires once per crossing, re-arms on recovery), `on_incoming_transfer()`, `on_block_interval()`; trigger failures are isolated from the polling loop
+- **`AutoRefueler`** (`agents/autonomous.py`) — keeps a target address funded via guarded automatic top-ups
+- **Replace-by-fee** — `PaymentAgent.speed_up(tx_hash)` resends a stuck tx with +10% gas; `execute(..., rbf=True)` applies it automatically on receipt timeout
+- **`EventBus`** (`agents/event_bus.py`) — async pub/sub for inter-agent communication with isolated handler failures
+- **`CoordinatorAgent`** (`agents/coordinator.py`) — plans workflows from natural-language goals using the agentic Copilot; `maintain_balance()` declarative workflow
+- **`AgentDashboard`** — live terminal panel (`rich.Live`) via `arcdevkit agent dashboard <addrs...>`
 
----
+### Added — Security
 
-## [0.4.5] — 2026-06-29
-
-### Fixed
-
-- **Lint (39 erros → 0)** — corrigidos todos os problemas reportados pelo ruff:
-  - Imports não ordenados (`I001`) em `__init__.py`, `payment_agent.py` e arquivos de teste
-  - Imports não usados (`F401`): `Coroutine` em `async_monitor.py`, `Decimal` em `test_deploy.py`, `patch` em `test_contracts.py`
-  - `asyncio.TimeoutError` substituído por builtin `TimeoutError` (`UP041`) em `async_monitor.py` e `api/routes/agents.py`
-  - Variáveis ambíguas/não usadas (`E741`, `F841`) nos testes
-  - Lambda atribuída a variável (`E731`) substituída por `def` em `test_events.py`
-
-### Changed
-
-- **`CLAUDE.md`** — atualizado para refletir todos os 11 módulos atuais do projeto (anteriormente descrevia apenas os 3 originais do v0.1.0)
-
----
-
-## [0.4.4] — 2026-06-28
-
-### Added
-
-- **`arcdevkit config`** — gerenciamento de `.env` disponível como subcomando top-level (`arcdevkit config get/set/list`)
-- **`arcdevkit portfolio`** — análise de portfólio disponível como `arcdevkit portfolio analyze/report`
-- **`arcdevkit history`** — log de operações recentes como `arcdevkit history`
-- **`arcdevkit codegen`** — geração de scripts como `arcdevkit codegen "<descrição>"`
-- **`arcdevkit debug batch`** — análise em lote de múltiplas transações adicionada a `commands/debug.py`
-- `arcdevkit` agora cobre 100% da superfície de comandos da `arc` flat-CLI (zero duplicação de código — reutiliza sub-apps de `flat.py`)
+- **Autonomy guardrails** (`agents/guardrails.py`) — daily spend limit (`MAX_SPEND_PER_DAY_USDC`), recipient whitelist (`AGENT_ALLOWED_RECIPIENTS`), JSON-lines audit log (`~/.arc_devkit/audit.log`), kill switch (`arcdevkit agent stop` / `resume` / `audit`)
+- **Mandatory pre-broadcast simulation** — `PaymentAgent.execute(enviar=True)` now aborts with `simulation_failed` when `eth_call` detects a revert (previously the simulation result was ignored); `force=True` bypasses
+- **Gas price ceiling** — `MAX_GAS_PRICE_GWEI` rejects transactions above the configured limit
+- **Shared input validation** (`core/validation.py`) — addresses, tx hashes, prompts (20k chars), amounts, ABIs, block ranges; applied across CLI, API, `TxAnalyzer`, and `PortfolioAnalyzer`
+- **API hardening** — 64 KB body limit (413), `API_KEY` mandatory when `ENV=production` (503), HTTP→HTTPS redirect in production, security headers (`X-Content-Type-Options`, `X-Frame-Options`, HSTS), per-route rate limiting on all endpoints, failed-auth logging with client IP, 400 (not 500) for invalid addresses/hashes
+- **OS keyring support** — `arc config keyring-set` / `keyring-clear` store `ARC_PRIVATE_KEY` outside `.env` (install with `pip install "arc-devkit[security]"`); `init` applies `chmod 600` and warns when a private key lands in `.env`
+- **Prompt-injection mitigation** — tool results are truncated and wrapped as untrusted on-chain data before returning to the model
+- **CI security job** — `bandit` static analysis and `pip-audit` dependency CVE scan
 
 ### Changed
 
-- **`README.md`** — reescrito: `arcdevkit` é o entry point primário documentado; todos os exemplos usam os nomes reais dos comandos
+- `TxAnalyzer.analyze()` validates the tx hash format and accepts `use_ai=False` for data-only analysis (used by Copilot tools to avoid recursion)
+- `load_abi()` validates ABI structure before returning
+- `PortfolioAnalyzer.analyze()` caps `scan_blocks` at 10,000
 
 ---
 

@@ -57,9 +57,11 @@ nav:
   - Getting Started: getting-started.md
   - Modules:
     - Dev Copilot: modules/dev-copilot.md
+    - Modo Agêntico: modules/agentic.md
     - Agent Starter Kit: modules/agent-starter-kit.md
     - Tx Debugger: modules/tx-debugger.md
     - Analytics: modules/analytics.md
+  - Segurança: security.md
   - CLI Guide: cli-guide.md
   - API Reference: api-reference.md
   - Cookbook: cookbook.md

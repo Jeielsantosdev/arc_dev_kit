@@ -387,7 +387,7 @@ class TestBalanceHistory:
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         path = tmp_path / f"{snap.address.lower()}.jsonl"
-        lines = [line for line in path.read_text().splitlines() if line.strip()]
+        lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
         assert len(lines) == 2
 
     def test_save_snapshot_includes_timestamp(self, tmp_path):
