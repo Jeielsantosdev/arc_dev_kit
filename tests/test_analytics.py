@@ -4,9 +4,6 @@ import json
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -358,7 +355,7 @@ class TestPortfolioCLI:
 
 class TestBalanceHistory:
     def _make_snapshot(self, address="0x" + "a" * 40, tx_count=3):
-        from arc_devkit.analytics.portfolio import ActivityLevel, PortfolioSnapshot
+        from arc_devkit.analytics.portfolio import PortfolioSnapshot
 
         return PortfolioSnapshot(
             address=address,
@@ -390,7 +387,7 @@ class TestBalanceHistory:
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         analyzer.save_snapshot(snap, history_dir=tmp_path)
         path = tmp_path / f"{snap.address.lower()}.jsonl"
-        lines = [l for l in path.read_text().splitlines() if l.strip()]
+        lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
         assert len(lines) == 2
 
     def test_save_snapshot_includes_timestamp(self, tmp_path):
@@ -442,11 +439,11 @@ class TestBalanceHistory:
 
         from arc_devkit.cli.flat import app
 
-        monkeypatch.setattr(
-            "arc_devkit.analytics.portfolio._HISTORY_DIR", tmp_path / "history"
-        )
+        monkeypatch.setattr("arc_devkit.analytics.portfolio._HISTORY_DIR", tmp_path / "history")
         runner = CliRunner()
-        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=[]):
+        with patch(
+            "arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=[]
+        ):
             result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40])
         assert result.exit_code == 0
         assert "No history" in result.output or "history" in result.output.lower()
@@ -457,9 +454,13 @@ class TestBalanceHistory:
 
         from arc_devkit.cli.flat import app
 
-        records = [{"native_balance": "1.5", "timestamp": "2026-01-01T00:00:00+00:00", "tx_count": 2}]
+        records = [
+            {"native_balance": "1.5", "timestamp": "2026-01-01T00:00:00+00:00", "tx_count": 2}
+        ]
         runner = CliRunner()
-        with patch("arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=records):
+        with patch(
+            "arc_devkit.analytics.portfolio.PortfolioAnalyzer.load_history", return_value=records
+        ):
             result = runner.invoke(app, ["portfolio", "history", "0x" + "a" * 40, "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)

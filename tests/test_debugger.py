@@ -2,11 +2,7 @@
 
 import json
 import tempfile
-from decimal import Decimal
 from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,8 +111,9 @@ class TestDecodeRevertBytes:
         assert "42" in result
 
     def test_custom_error_no_args(self):
-        from arc_devkit.debugger.tx_analyzer import decode_revert_bytes
         from web3 import Web3
+
+        from arc_devkit.debugger.tx_analyzer import decode_revert_bytes
 
         abi = [{"type": "error", "name": "Unauthorized", "inputs": []}]
         selector = Web3.keccak(text="Unauthorized()")[:4]
@@ -323,9 +320,7 @@ class TestDebugCLI:
         from arc_devkit.cli.flat import app
 
         runner = CliRunner()
-        result = runner.invoke(
-            app, ["debug", "0x" + "a" * 64, "--abi", "nonexistent.json"]
-        )
+        result = runner.invoke(app, ["debug", "0x" + "a" * 64, "--abi", "nonexistent.json"])
         assert result.exit_code != 0
 
     def test_debug_batch_from_txt_file(self, mock_anthropic):

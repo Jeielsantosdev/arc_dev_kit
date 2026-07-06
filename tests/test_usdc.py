@@ -1,7 +1,7 @@
 """Unit tests for arc_devkit.usdc.token.USDCToken."""
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Standard Hardhat test private key — valid secp256k1 key safe for tests
 _PRIVKEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -34,7 +34,7 @@ def _make_contract_w3(balance_atomic: int = 0) -> MagicMock:
 
 class TestUSDCToken:
     def _token(self, w3=None, balance_atomic: int = 0, contract_address: str | None = None):
-        from arc_devkit.usdc.token import USDC_ARC_TESTNET_ADDRESS, USDCToken
+        from arc_devkit.usdc.token import USDCToken
 
         addr = contract_address or "0x" + "c" * 40
         w3 = w3 or _make_contract_w3(balance_atomic)
@@ -128,8 +128,9 @@ class TestUSDCToken:
     # --- contract_address property ---
 
     def test_contract_address_property(self):
-        from arc_devkit.usdc.token import USDCToken
         from web3 import Web3
+
+        from arc_devkit.usdc.token import USDCToken
 
         addr = "0x" + "d" * 40
         token = USDCToken(contract_address=addr, w3=_make_contract_w3())

@@ -130,9 +130,7 @@ def test_estimate_gas_sem_to_retorna_422(client):
 
 def test_estimate_gas_bad_address_returns_400(client):
     with patch("arc_devkit.core.gas.estimate_transfer", side_effect=Exception("bad addr")):
-        resp = client.get(
-            "/debug/estimate", params={"to": "bad", "amount": 1.0}
-        )
+        resp = client.get("/debug/estimate", params={"to": "bad", "amount": 1.0})
     assert resp.status_code == 400
 
 
@@ -244,7 +242,9 @@ def test_payment_execute_error_returns_400(client):
 
 
 def test_payment_500_on_unexpected_exception(client, mock_web3):
-    with patch("arc_devkit.agents.payment_agent.PaymentAgent.execute", side_effect=Exception("boom")):
+    with patch(
+        "arc_devkit.agents.payment_agent.PaymentAgent.execute", side_effect=Exception("boom")
+    ):
         resp = client.post(
             "/agents/payment",
             json={

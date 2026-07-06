@@ -1,10 +1,8 @@
 """Tests for AsyncBaseAgent, AsyncMonitorAgent, and WebSocket endpoint."""
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -146,8 +144,8 @@ async def test_async_monitor_callback_fired_on_change():
         w3.from_wei.return_value = "1.0"
         # First call seeds the initial balance, second detects a change
         w3.eth.get_balance.side_effect = [
-            _MOCK_BALANCE,       # initial seed in execute()
-            _MOCK_BALANCE * 2,   # change detected on first iteration
+            _MOCK_BALANCE,  # initial seed in execute()
+            _MOCK_BALANCE * 2,  # change detected on first iteration
         ]
         monitor._w3 = w3
 
@@ -235,11 +233,16 @@ async def test_async_monitor_event_stream_yields():
 
 def test_websocket_monitor_accepts_connection():
     """WebSocket /agents/monitor/{address} must accept and send heartbeat pings."""
-    from arc_devkit.api.main import app
     from fastapi.testclient import TestClient
 
-    with patch("arc_devkit.core.connection.get_web3", return_value=_mock_w3()), \
-         patch("arc_devkit.agents.async_monitor.AsyncMonitorAgent.execute", new_callable=AsyncMock) as mock_exec:
+    from arc_devkit.api.main import app
+
+    with (
+        patch("arc_devkit.core.connection.get_web3", return_value=_mock_w3()),
+        patch(
+            "arc_devkit.agents.async_monitor.AsyncMonitorAgent.execute", new_callable=AsyncMock
+        ) as mock_exec,
+    ):
         mock_exec.return_value = {"status": "done", "iterations": 0}
 
         client = TestClient(app)
@@ -258,10 +261,14 @@ def test_async_monitor_state_file_loaded(tmp_path):
     import json
 
     state = tmp_path / "state.json"
-    state.write_text(json.dumps({
-        "balances": {_ADDRESS: "5000000000000000000"},
-        "last_erc20_block": 42,
-    }))
+    state.write_text(
+        json.dumps(
+            {
+                "balances": {_ADDRESS: "5000000000000000000"},
+                "last_erc20_block": 42,
+            }
+        )
+    )
 
     with patch("arc_devkit.core.connection.get_web3", return_value=_mock_w3()):
         from arc_devkit.agents.async_monitor import AsyncMonitorAgent
@@ -331,8 +338,7 @@ async def test_async_monitor_webhook_called(tmp_path, respx_mock=None):
         resp.raise_for_status = MagicMock()
         return resp
 
-    with patch("httpx.AsyncClient.post", fake_post), \
-         patch("asyncio.sleep", new_callable=AsyncMock):
+    with patch("httpx.AsyncClient.post", fake_post), patch("asyncio.sleep", new_callable=AsyncMock):
         await monitor.execute(max_iterations=1)
 
     assert len(events_sent) == 1
@@ -345,7 +351,7 @@ async def test_async_monitor_webhook_called(tmp_path, respx_mock=None):
 
 
 def test_copilot_offline_ask_returns_mock(mock_anthropic):
-    from arc_devkit.copilot.agent import DevCopilot, _OFFLINE_RESPONSE
+    from arc_devkit.copilot.agent import _OFFLINE_RESPONSE, DevCopilot
 
     copilot = DevCopilot(offline=True)
     assert copilot.ask("What is Arc?") == _OFFLINE_RESPONSE
@@ -353,7 +359,7 @@ def test_copilot_offline_ask_returns_mock(mock_anthropic):
 
 
 def test_copilot_offline_stream_returns_mock(mock_anthropic):
-    from arc_devkit.copilot.agent import DevCopilot, _OFFLINE_RESPONSE
+    from arc_devkit.copilot.agent import _OFFLINE_RESPONSE, DevCopilot
 
     copilot = DevCopilot(offline=True)
     result = "".join(copilot.ask_stream("What is Arc?"))

@@ -1,7 +1,7 @@
 """Contract compilation and deployment for Arc DevKit."""
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -214,8 +214,7 @@ class ContractDeployer:
         if key is None:
             available = [k.split(":")[-1] for k in compiled]
             raise ValueError(
-                f"Contract '{contract_name}' not found. "
-                f"Available: {', '.join(available)}"
+                f"Contract '{contract_name}' not found. Available: {', '.join(available)}"
             )
 
         abi = compiled[key]["abi"]

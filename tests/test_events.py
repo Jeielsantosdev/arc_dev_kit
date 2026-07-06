@@ -100,7 +100,7 @@ class TestEventListenerPoll:
         log = _make_log(block_number=101)
         w3 = _make_w3(current_block=101, logs=[log])
         el = EventListener(w3=w3, from_block=100)
-        events = el.poll()
+        el.poll()
         w3.eth.get_logs.assert_called_once()
         call_params = w3.eth.get_logs.call_args[0][0]
         assert call_params["fromBlock"] == 100
@@ -127,7 +127,14 @@ class TestEventListenerPoll:
         received: list = []
 
         def fake_decode(self_log):
-            return {"event": "Transfer", "address": "0x...", "args": {}, "block_number": 1, "tx_hash": None, "log_index": 0}
+            return {
+                "event": "Transfer",
+                "address": "0x...",
+                "args": {},
+                "block_number": 1,
+                "tx_hash": None,
+                "log_index": 0,
+            }
 
         with patch.object(EventListener, "_decode_log", side_effect=fake_decode):
             el.on("Transfer", lambda e: received.append(e))
@@ -182,9 +189,18 @@ class TestEventListenerPoll:
 
         received: list = []
         bad_cb = MagicMock(side_effect=RuntimeError("boom"))
-        good_cb = lambda e: received.append(e)
 
-        fake_event = {"event": "Transfer", "address": "0x", "args": {}, "block_number": 1, "tx_hash": None, "log_index": 0}
+        def good_cb(e):
+            received.append(e)
+
+        fake_event = {
+            "event": "Transfer",
+            "address": "0x",
+            "args": {},
+            "block_number": 1,
+            "tx_hash": None,
+            "log_index": 0,
+        }
         with patch.object(EventListener, "_decode_log", return_value=fake_event):
             el.on("Transfer", bad_cb)
             el.on("Transfer", good_cb)
@@ -227,7 +243,9 @@ class TestDecodeLog:
             "transactionHash": bytes.fromhex("ab" * 32),
             "logIndex": 0,
         }.get(k, default)
-        contract_mock.events.__getitem__.return_value.return_value.process_log.return_value = decoded
+        contract_mock.events.__getitem__.return_value.return_value.process_log.return_value = (
+            decoded
+        )
         w3.eth.contract.return_value = contract_mock
 
         el = EventListener(contract_address=addr, abi=abi, w3=w3)
@@ -245,7 +263,9 @@ class TestDecodeLog:
 
         w3 = _make_w3()
         contract_mock = MagicMock()
-        contract_mock.events.__getitem__.return_value.return_value.process_log.side_effect = Exception("bad log")
+        contract_mock.events.__getitem__.return_value.return_value.process_log.side_effect = (
+            Exception("bad log")
+        )
         w3.eth.contract.return_value = contract_mock
 
         el = EventListener(contract_address=addr, abi=abi, w3=w3)
@@ -275,7 +295,9 @@ class TestDecodeLog:
         w3 = _make_w3()
         contract_mock = MagicMock()
         # Make event decoding fail so we fall back to raw
-        contract_mock.events.__getitem__.return_value.return_value.process_log.side_effect = Exception("fail")
+        contract_mock.events.__getitem__.return_value.return_value.process_log.side_effect = (
+            Exception("fail")
+        )
         w3.eth.contract.return_value = contract_mock
 
         el = EventListener(contract_address=addr, abi=abi, w3=w3)

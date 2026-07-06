@@ -50,9 +50,7 @@ class EventListener:
 
         self._contract = None
         if self._contract_address and self._abi:
-            self._contract = self._w3.eth.contract(
-                address=self._contract_address, abi=self._abi
-            )
+            self._contract = self._w3.eth.contract(address=self._contract_address, abi=self._abi)
 
     # ------------------------------------------------------------------
     # Registration
