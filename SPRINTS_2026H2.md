@@ -47,13 +47,30 @@
 
 Preparar o DevKit para o mainnet e quitar dívidas urgentes.
 
-- [ ] 🚨 Revogar token PyPI, auditar `git log --all -- .env`, garantir `.env*` no `.gitignore`
-- [ ] `config.py`: perfis de rede (`ARC_NETWORK=testnet|mainnet`) com chain ID, RPC e explorer por perfil; mainnet como placeholder atualizável
-- [ ] `arc_devkit/networks.py`: registry de endereços de contratos por rede (USDC, EURC, CCTP, Gateway — conforme docs.arc.io/Contract Addresses)
+> **Progresso (2026-07-09, branch `feature/multirede-housekeeping`):** fundação multi-rede
+> concluída (tasks de `config.py` + `networks.py`). Suíte: 334 passed, 8 skipped, cobertura 82%
+> (`networks.py` 100%, `config.py` 88%). Nada commitado ainda.
+
+- [~] 🚨 Revogar token PyPI, auditar `git log --all -- .env`, garantir `.env*` no `.gitignore`
+  - **Obs:** auditoria ✅ concluída — `.env` real **nunca** foi commitado (só `.env.example`); nenhum
+    token PyPI/`sk-ant`/private key real encontrado em blob algum do histórico. `.gitignore` ✅ já cobre
+    `.env`/`.env.local`/`.env.*.local`. **Pendente (ação humana):** revogar o token no pypi.org por precaução.
+- [x] `config.py`: perfis de rede (`ARC_NETWORK=testnet|mainnet`) com chain ID, RPC e explorer por perfil; mainnet como placeholder atualizável
+  - **Obs:** `ARC_NETWORK` default `testnet`; `ARC_RPC_URL`/`ARC_CHAIN_ID`/`ARC_EXPLORER_URL` explícitos
+    **sobrescrevem** o perfil (compat total). Novos campos `settings.network` e `settings.explorer_url`.
+    `.env.example` documentado.
+- [x] `arc_devkit/networks.py`: registry de endereços de contratos por rede (USDC, EURC, CCTP, Gateway — conforme docs.arc.io/Contract Addresses)
+  - **Obs:** estrutura pronta (`Network` dataclass + `TESTNET`/`MAINNET` + `get_network()`), mas os
+    **endereços de contrato e o explorer do testnet estão como placeholder** (`ZERO_ADDRESS` / vazio) —
+    faltam os **valores reais de docs.arc.io/Contract Addresses**. Mainnet marcado `is_placeholder=True`.
 - [ ] Generalizar `usdc/` → `arc_devkit/stablecoins/` com suporte a **EURC** (manter import compat de `usdc`)
 - [ ] CLI: `arcdevkit network list|show`, shell completion documentado (bash/zsh/fish)
 - [ ] TODOs do CLAUDE.md: corrigir versão no `init`, compatibilidade multi-distro (paths, keyring/libsecret)
-- [ ] Testes de regressão RPC com vcrpy/respx (replay offline)
+- [~] Testes de regressão RPC com vcrpy/respx (replay offline)
+  - **Obs:** parcial — adicionado `tests/test_networks.py` (15 testes de registry + resolução de perfis).
+    Falta o **replay offline de RPC com respx/vcrpy** propriamente dito.
+
+> **Legenda:** `[x]` feito · `[~]` parcial · `[ ]` pendente
 
 ### Sprint 2 — Fees, Paymaster & Account Abstraction → v0.5.x (semanas 3–4)
 
