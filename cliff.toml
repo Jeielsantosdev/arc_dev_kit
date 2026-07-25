@@ -1,0 +1,53 @@
+# git-cliff configuration — automated CHANGELOG.md generation from
+# conventional commits (feat/fix/docs/style/chore/test/refactor/perf).
+#
+# Usage:
+#   cargo install git-cliff   # or: brew install git-cliff
+#   git cliff -o CHANGELOG.md              # regenerate the full changelog
+#   git cliff --unreleased --tag vX.Y.Z    # preview the next release's entry
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to Arc DevKit are documented here.\n
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}]{% if timestamp %} - {{ timestamp | date(format="%Y-%m-%d") }}{% endif %}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}])
+    {% endfor %}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_preprocessors = []
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^style", group = "Styling" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^perf", group = "Performance" },
+    { message = "^test", group = "Testing" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", group = "Miscellaneous" },
+    { message = "^ci", group = "CI/CD" },
+    { message = "^security", group = "Security" },
+    { message = ".*", group = "Other" },
+]
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+topo_order = false
+sort_commits = "newest"

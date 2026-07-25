@@ -55,6 +55,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Playground: playground.md
   - Modules:
     - Dev Copilot: modules/dev-copilot.md
     - Modo Agêntico: modules/agentic.md
