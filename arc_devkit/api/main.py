@@ -1,7 +1,7 @@
 """Arc DevKit REST API — FastAPI."""
 
+import hmac
 import logging
-import os
 import time
 import uuid
 
@@ -13,19 +13,16 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from arc_devkit import __version__
+from arc_devkit.api.auth import get_api_key, is_production
 from arc_devkit.api.rate_limit import limiter
-from arc_devkit.api.routes import agents, copilot, debugger
+from arc_devkit.api.routes import agent_economy, agents, bridge, copilot, debugger, fees
 from arc_devkit.api.routes.agents import ws_router as agents_ws_router
 
 logger = logging.getLogger(__name__)
 
 # Maximum accepted request body size (DoS protection)
 MAX_BODY_BYTES = 64 * 1024  # 64 KB
-
-
-def _is_production() -> bool:
-    """Read ENV at request time so tests can toggle it."""
-    return os.getenv("ENV", "development").strip().lower() == "production"
+_is_production = is_production
 
 
 _DESCRIPTION = """\
@@ -65,6 +62,18 @@ _TAGS_METADATA = [
     {
         "name": "Tx Debugger",
         "description": "Analyze transactions, decode reverts and ABI input data, estimate gas costs, and paginate analysis history.",
+    },
+    {
+        "name": "Fees",
+        "description": "Quote transfer fees in USDC (native ARC or stablecoin transfers) and paymaster availability.",
+    },
+    {
+        "name": "Bridge",
+        "description": "Cross-chain USDC transfers via CCTP: start a burn, check status, resume after a failure.",
+    },
+    {
+        "name": "Agent Economy",
+        "description": "ERC-8004 agent identity/reputation and ERC-8183 job marketplace with USDC escrow.",
     },
     {
         "name": "Infra",
@@ -109,13 +118,6 @@ app.add_middleware(
 _API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def _get_api_key() -> str | None:
-    """Return the API key configured in the environment (optional)."""
-    import os
-
-    return os.getenv("API_KEY", "").strip() or None
-
-
 def verify_api_key(request: Request, api_key: str | None = Security(_API_KEY_HEADER)) -> None:
     """
     Verify the API key if API_KEY is set in the environment.
@@ -124,7 +126,7 @@ def verify_api_key(request: Request, api_key: str | None = Security(_API_KEY_HEA
     (ENV=production), API_KEY is mandatory — requests fail with 503 until it
     is configured, so authentication can never be silently disabled.
     """
-    required_key = _get_api_key()
+    required_key = get_api_key()
 
     if not required_key:
         if _is_production():
@@ -135,7 +137,7 @@ def verify_api_key(request: Request, api_key: str | None = Security(_API_KEY_HEA
             )
         return
 
-    if api_key != required_key:
+    if api_key is None or not hmac.compare_digest(api_key, required_key):
         client_ip = request.client.host if request.client else "unknown"
         logger.warning("Failed authentication attempt: ip=%s path=%s", client_ip, request.url.path)
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
@@ -211,6 +213,24 @@ app.include_router(
     debugger.router,
     prefix="/debug",
     tags=["Tx Debugger"],
+    dependencies=[Security(verify_api_key)],
+)
+app.include_router(
+    fees.router,
+    prefix="/fees",
+    tags=["Fees"],
+    dependencies=[Security(verify_api_key)],
+)
+app.include_router(
+    bridge.router,
+    prefix="/bridge",
+    tags=["Bridge"],
+    dependencies=[Security(verify_api_key)],
+)
+app.include_router(
+    agent_economy.router,
+    prefix="/agents",
+    tags=["Agent Economy"],
     dependencies=[Security(verify_api_key)],
 )
 

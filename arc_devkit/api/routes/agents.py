@@ -5,6 +5,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from arc_devkit.api.auth import api_key_is_valid
 from arc_devkit.api.rate_limit import limiter
 from arc_devkit.core.validation import ValidationError, validate_address
 
@@ -12,7 +13,7 @@ router = APIRouter()
 
 # WebSocket routes are on a separate router because FastAPI's HTTPSecurity
 # schemes (APIKeyHeader) cannot resolve against WebSocket scope.
-# Auth for WS is handled inside the handler via query param or per-connection token.
+# Auth for WS is enforced inside the handler via the api_key query param.
 ws_router = APIRouter()
 
 
@@ -163,11 +164,14 @@ async def monitor_ws(
     address: str,
     interval: int = Query(default=15, ge=1, le=300),
     min_change_wei: int = Query(default=0, ge=0),
+    api_key: str | None = Query(default=None),
 ) -> None:
     """
     WebSocket endpoint that streams balance-change events for an Arc address.
 
-    Connect with: ws://host/agents/monitor/{address}?interval=15&min_change_wei=0
+    Connect with: ws://host/agents/monitor/{address}?interval=15&min_change_wei=0&api_key=...
+    (api_key is required only when the API_KEY env var is configured — browsers
+    cannot set custom headers on the WS handshake, so it is passed as a query param.)
 
     Each message is a JSON object with keys:
     - event_type: "native" or "erc20_transfer"
@@ -177,6 +181,10 @@ async def monitor_ws(
     The stream ends when the client disconnects.
     """
     from arc_devkit.agents.async_monitor import AsyncMonitorAgent
+
+    if not api_key_is_valid(api_key):
+        await websocket.close(code=4401, reason="Invalid or missing API key.")
+        return
 
     await websocket.accept()
 

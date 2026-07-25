@@ -5,7 +5,8 @@ from rich.console import Console
 from rich.panel import Panel
 
 from arc_devkit import __version__
-from arc_devkit.cli.commands import agent, copilot, debug
+from arc_devkit.cli.commands import agent, bridge, copilot, debug, fees, network, oracle, privacy
+from arc_devkit.cli.commands import mcp as mcp_cmd
 from arc_devkit.cli.flat import config_app, portfolio_app
 
 # Main Typer application
@@ -23,6 +24,14 @@ app.add_typer(agent.app, name="agent", help="Wallet and agent management.")
 app.add_typer(debug.app, name="debug", help="Transaction analysis and debugging.")
 app.add_typer(config_app, name="config", help="Manage Arc DevKit settings via .env.")
 app.add_typer(portfolio_app, name="portfolio", help="Wallet portfolio analysis on Arc.")
+app.add_typer(
+    network.app, name="network", help="Arc network profiles (testnet/mainnet) and contracts."
+)
+app.add_typer(fees.app, name="fees", help="Fee quotes for transfers on Arc.")
+app.add_typer(bridge.app, name="bridge", help="Cross-chain USDC bridge (CCTP) for Arc.")
+app.add_typer(mcp_cmd.app, name="mcp", help="Arc DevKit MCP server.")
+app.add_typer(oracle.app, name="oracle", help="Chainlink-compatible price feed queries.")
+app.add_typer(privacy.app, name="privacy", help="Experimental privacy primitives (view-keys).")
 
 console = Console()
 
