@@ -92,6 +92,77 @@ TOOL_DEFINITIONS: list[dict] = [
             "required": ["contract_address", "abi_json", "function_name"],
         },
     },
+    {
+        "name": "get_fee_quote",
+        "description": (
+            "Quote the fee (in USDC, Arc's gas token) for a native ARC or USDC transfer, "
+            "and report whether a paymaster is available (always false today)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Destination EVM address."},
+                "amount": {"type": "number", "description": "Amount to transfer."},
+                "token": {
+                    "type": "string",
+                    "description": "'native' or 'usdc'. Defaults to 'native'.",
+                },
+            },
+            "required": ["to", "amount"],
+        },
+    },
+    {
+        "name": "get_bridge_status",
+        "description": (
+            "Look up the status of a CCTP bridge transfer previously started with "
+            "arc_devkit.bridge (burn/attestation/mint lifecycle) by its transfer id."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "transfer_id": {"type": "string", "description": "Bridge transfer id."},
+            },
+            "required": ["transfer_id"],
+        },
+    },
+    {
+        "name": "get_agent_reputation",
+        "description": (
+            "Look up an agent's aggregated reputation from an ERC-8004 Reputation "
+            "Registry. Requires the caller to supply both registry addresses — no "
+            "canonical Arc deployment is published yet."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "integer", "description": "On-chain agent id."},
+                "identity_registry": {
+                    "type": "string",
+                    "description": "ERC-8004 Identity Registry address.",
+                },
+                "reputation_registry": {
+                    "type": "string",
+                    "description": "ERC-8004 Reputation Registry address.",
+                },
+            },
+            "required": ["agent_id", "identity_registry", "reputation_registry"],
+        },
+    },
+    {
+        "name": "search_arc_docs",
+        "description": (
+            "Search Arc's official documentation (llms.txt) for a keyword or topic. "
+            "Only available when ARC_LLMS_TXT_URL is configured — otherwise returns a "
+            "clear 'not configured' note; never invents documentation content."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Keyword or topic to search for."},
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -147,12 +218,109 @@ def _tool_call_view_function(tool_input: dict) -> dict:
     return {"function": function_name, "result": str(result)}
 
 
+def _tool_get_fee_quote(tool_input: dict) -> dict:
+    from arc_devkit.core.gas import quote_fee
+    from arc_devkit.core.validation import validate_address, validate_amount
+
+    to = validate_address(str(tool_input.get("to", "")))
+    amount = float(validate_amount(tool_input.get("amount")))
+    token = str(tool_input.get("token") or "native")
+    return quote_fee(to, amount, token=token)
+
+
+def _tool_get_bridge_status(tool_input: dict) -> dict:
+    from arc_devkit.bridge.store import load_transfer
+
+    transfer_id = str(tool_input.get("transfer_id", "")).strip()
+    transfer = load_transfer(transfer_id)
+    if transfer is None:
+        return {"found": False, "transfer_id": transfer_id}
+    return {"found": True, **transfer.to_dict()}
+
+
+def _tool_get_agent_reputation(tool_input: dict) -> dict:
+    from arc_devkit.agents.identity import AgentRegistry
+    from arc_devkit.core.connection import get_web3
+    from arc_devkit.core.validation import validate_address
+
+    identity_registry = validate_address(str(tool_input.get("identity_registry", "")))
+    reputation_registry = validate_address(str(tool_input.get("reputation_registry", "")))
+    agent_id = int(tool_input.get("agent_id", 0))
+
+    registry = AgentRegistry(
+        w3=get_web3(),
+        identity_registry_address=identity_registry,
+        reputation_registry_address=reputation_registry,
+    )
+    score = registry.get_reputation(agent_id)
+    if score is None:
+        return {"found": False, "agent_id": agent_id}
+    return {
+        "found": True,
+        "agent_id": score.agent_id,
+        "total_score": score.total_score,
+        "feedback_count": score.feedback_count,
+        "average": str(score.average),
+    }
+
+
+_LLMS_TXT_CACHE: dict[str, tuple[str, float]] = {}
+_LLMS_TXT_CACHE_TTL = 600  # 10 minutes
+
+
+def _fetch_llms_txt(url: str) -> str:
+    import time
+
+    cached = _LLMS_TXT_CACHE.get(url)
+    if cached and (time.time() - cached[1]) < _LLMS_TXT_CACHE_TTL:
+        return cached[0]
+
+    import httpx
+
+    resp = httpx.get(url, timeout=10.0)
+    resp.raise_for_status()
+    text = resp.text
+    _LLMS_TXT_CACHE[url] = (text, time.time())
+    return text
+
+
+def _tool_search_arc_docs(tool_input: dict) -> dict:
+    from arc_devkit.config import settings
+
+    query = str(tool_input.get("query", "")).strip()
+    if not settings.arc_llms_txt_url:
+        return {
+            "available": False,
+            "note": (
+                "ARC_LLMS_TXT_URL is not configured — no official Arc documentation "
+                "source is wired up. Tell the user to set it to Arc's published "
+                "llms.txt URL to enable this tool; do not invent documentation content."
+            ),
+        }
+
+    text = _fetch_llms_txt(settings.arc_llms_txt_url)
+    query_lower = query.lower()
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    matches = [p for p in paragraphs if query_lower in p.lower()]
+
+    return {
+        "available": True,
+        "query": query,
+        "matches": matches[:5] if matches else [],
+        "match_count": len(matches),
+    }
+
+
 _TOOL_HANDLERS = {
     "get_balance": _tool_get_balance,
     "get_block_info": _tool_get_block_info,
     "estimate_gas": _tool_estimate_gas,
     "debug_transaction": _tool_debug_transaction,
     "call_view_function": _tool_call_view_function,
+    "get_fee_quote": _tool_get_fee_quote,
+    "get_bridge_status": _tool_get_bridge_status,
+    "get_agent_reputation": _tool_get_agent_reputation,
+    "search_arc_docs": _tool_search_arc_docs,
 }
 
 

@@ -129,3 +129,83 @@ def estimate(
     tabela.add_row("Gas Cost", f"[bold green]{est['custo_usdc']}[/bold green] USDC")
 
     console.print(tabela)
+
+
+@app.command()
+def trace(
+    tx_hash: str = typer.Argument(..., help="Transaction hash to trace (0x...)."),
+    tracer: str = typer.Option("callTracer", "--tracer", help="Trace type (node-dependent)."),
+) -> None:
+    """
+    Fetch an internal-call trace via debug_traceTransaction, if the RPC supports it.
+
+    Most public RPC endpoints (including the default Arc testnet RPC) disable
+    the debug_* namespace — this fails with a clear message rather than a
+    generic RPC error.
+
+    Example:
+      arcdevkit debug trace 0xabc123...
+    """
+    import json
+
+    from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+    with console.status(
+        f"[bold yellow]Tracing transaction {tx_hash[:16]}...[/bold yellow]", spinner="dots"
+    ):
+        result = TxAnalyzer().trace_transaction(tx_hash, tracer=tracer)
+
+    if not result["supported"]:
+        console.print(f"\n[red]✗ Not available:[/red] {result['error']}\n")
+        raise typer.Exit(1)
+
+    console.print_json(json.dumps(result["trace"], default=str))
+
+
+@app.command()
+def compare(
+    hash1: str = typer.Argument(..., help="First transaction hash."),
+    hash2: str = typer.Argument(..., help="Second transaction hash."),
+) -> None:
+    """
+    Analyze two transactions side by side and highlight the differences.
+
+    Example:
+      arcdevkit debug compare 0xabc123... 0xdef456...
+    """
+    from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+    analyzer = TxAnalyzer()
+    with console.status(
+        "[bold yellow]Analyzing both transactions...[/bold yellow]", spinner="dots"
+    ):
+        r1 = analyzer.analyze(hash1, use_ai=False)
+        r2 = analyzer.analyze(hash2, use_ai=False)
+
+    tabela = Table(
+        title="Transaction Comparison",
+        show_header=True,
+        header_style="bold yellow",
+        border_style="yellow",
+    )
+    tabela.add_column("Field", style="bold", min_width=16)
+    tabela.add_column(f"{hash1[:14]}...")
+    tabela.add_column(f"{hash2[:14]}...")
+
+    def _row(label: str, v1, v2) -> None:
+        diff = v1 != v2
+        style = "yellow" if diff else "dim"
+        marker = " ⚠" if diff else ""
+        tabela.add_row(
+            label, f"[{style}]{v1}{marker}[/{style}]", f"[{style}]{v2}{marker}[/{style}]"
+        )
+
+    _row("Status", r1["status"], r2["status"])
+    _row("Cost (USDC)", r1["custo_usdc"], r2["custo_usdc"])
+    _row("Revert reason", r1.get("revert_reason") or "—", r2.get("revert_reason") or "—")
+
+    raw1, raw2 = r1.get("raw_data") or {}, r2.get("raw_data") or {}
+    _row("Gas used", raw1.get("gas_used", "N/A"), raw2.get("gas_used", "N/A"))
+    _row("Block", raw1.get("block", "N/A"), raw2.get("block", "N/A"))
+
+    console.print(tabela)

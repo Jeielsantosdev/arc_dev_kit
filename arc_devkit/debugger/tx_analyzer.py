@@ -281,6 +281,45 @@ class TxAnalyzer:
             "raw_data": data_summary,
         }
 
+    def trace_transaction(self, tx_hash: str, tracer: str = "callTracer") -> dict:
+        """
+        Fetch an internal-call trace via debug_traceTransaction, if the connected
+        RPC supports it.
+
+        Most public RPC endpoints (including the default Arc testnet RPC)
+        disable the non-standard debug_* namespace — this returns a clear,
+        structured "not supported" result instead of raising.
+
+        Args:
+            tx_hash: Transaction hash (0x... format).
+            tracer: Trace type understood by the node (default "callTracer").
+
+        Returns:
+            Dict with hash, supported (bool), trace (raw result or None), and
+            error (explanation when unsupported).
+        """
+        from arc_devkit.core.validation import validate_tx_hash
+
+        tx_hash = validate_tx_hash(tx_hash)
+        try:
+            result = self._w3.manager.request_blocking(
+                "debug_traceTransaction",  # type: ignore[arg-type]
+                [tx_hash, {"tracer": tracer}],
+            )
+            return {"hash": tx_hash, "supported": True, "trace": result, "error": None}
+        except Exception as exc:
+            logger.info("debug_traceTransaction unavailable for %s: %s", tx_hash[:16], exc)
+            return {
+                "hash": tx_hash,
+                "supported": False,
+                "trace": None,
+                "error": (
+                    f"debug_traceTransaction is not available on this RPC: {exc}. "
+                    "Most public endpoints disable the debug_* namespace — try an "
+                    "archive node or a self-hosted node with debug APIs enabled."
+                ),
+            }
+
     def analyze_batch(
         self,
         tx_hashes: list[str],

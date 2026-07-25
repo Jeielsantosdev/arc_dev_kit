@@ -234,6 +234,51 @@ class TestTxAnalyzerAnalyze:
 
 
 # ---------------------------------------------------------------------------
+# TxAnalyzer.trace_transaction()
+# ---------------------------------------------------------------------------
+
+
+class TestTraceTransaction:
+    def _analyzer(self):
+        from arc_devkit.debugger.tx_analyzer import TxAnalyzer
+
+        w3 = _make_w3()
+        with patch("arc_devkit.debugger.tx_analyzer.get_web3", return_value=w3):
+            return TxAnalyzer(w3=w3)
+
+    def test_supported_returns_trace(self):
+        analyzer = self._analyzer()
+        analyzer._w3.manager.request_blocking.return_value = {"type": "CALL", "calls": []}
+
+        result = analyzer.trace_transaction("0x" + "a" * 64)
+
+        assert result["supported"] is True
+        assert result["trace"] == {"type": "CALL", "calls": []}
+        assert result["error"] is None
+
+    def test_unsupported_rpc_returns_clear_error(self):
+        analyzer = self._analyzer()
+        analyzer._w3.manager.request_blocking.side_effect = Exception(
+            "{'message': 'Method not found', 'code': -32601}"
+        )
+
+        result = analyzer.trace_transaction("0x" + "a" * 64)
+
+        assert result["supported"] is False
+        assert result["trace"] is None
+        assert "debug_traceTransaction" in result["error"]
+
+    def test_invalid_hash_raises(self):
+        analyzer = self._analyzer()
+        import pytest
+
+        from arc_devkit.core.validation import ValidationError
+
+        with pytest.raises(ValidationError):
+            analyzer.trace_transaction("not-a-hash")
+
+
+# ---------------------------------------------------------------------------
 # TxAnalyzer.analyze_batch()
 # ---------------------------------------------------------------------------
 
