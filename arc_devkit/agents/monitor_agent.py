@@ -49,6 +49,7 @@ class MonitorAgent(BaseAgent):
         state_file: str | Path | None = None,
         usdc_contract_address: str | None = None,
         webhook_url: str | None = None,
+        watch_bridge_transfers: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -60,6 +61,8 @@ class MonitorAgent(BaseAgent):
             state_file: Path to a JSON file for persisting last balances.
             usdc_contract_address: USDC contract address to monitor Transfer events.
             webhook_url: HTTP endpoint to POST event payloads to on each alert.
+            watch_bridge_transfers: CCTP bridge transfer ids to watch for completion
+                                     (see arc_devkit.bridge) — fires on_bridge_completed.
         """
         super().__init__(**kwargs)
 
@@ -86,6 +89,9 @@ class MonitorAgent(BaseAgent):
         self._incoming_transfer_actions: list[Callable[[dict], None]] = []
         self._block_interval_triggers: list[tuple[int, Callable[[dict], None]]] = []
         self._last_trigger_block: dict[int, int] = {}
+        self._bridge_completed_actions: list[Callable[[dict], None]] = []
+        self._watched_bridge_transfers: list[str] = watch_bridge_transfers or []
+        self._bridge_fired: set[str] = set()
 
         self._usdc_contract = None
         if usdc_contract_address:
@@ -137,6 +143,15 @@ class MonitorAgent(BaseAgent):
             raise ValueError("n_blocks must be positive.")
         self._block_interval_triggers.append((n_blocks, action))
 
+    def on_bridge_completed(self, action: Callable[[dict], None]) -> None:
+        """
+        Register an action fired once when a watched CCTP bridge transfer
+        (see watch_bridge_transfers / arc_devkit.bridge) reaches COMPLETE.
+
+        The action receives {"trigger", "transfer_id", "status", "mint_tx_hash"}.
+        """
+        self._bridge_completed_actions.append(action)
+
     def _run_action(self, action: Callable[[dict], None], payload: dict) -> None:
         """Run a trigger action, isolating failures from the monitor loop."""
         try:
@@ -178,6 +193,31 @@ class MonitorAgent(BaseAgent):
                         "interval": n_blocks,
                     },
                 )
+
+    def _evaluate_bridge_transfers(self) -> None:
+        """Poll watched CCTP bridge transfers and fire on_bridge_completed once each."""
+        if not self._watched_bridge_transfers or not self._bridge_completed_actions:
+            return
+
+        from arc_devkit.bridge.models import BridgeStatus
+        from arc_devkit.bridge.store import load_transfer
+
+        for transfer_id in self._watched_bridge_transfers:
+            if transfer_id in self._bridge_fired:
+                continue
+            transfer = load_transfer(transfer_id)
+            if transfer is None or transfer.status != BridgeStatus.COMPLETE:
+                continue
+            self._bridge_fired.add(transfer_id)
+            payload = {
+                "trigger": "on_bridge_completed",
+                "transfer_id": transfer_id,
+                "status": transfer.status.value,
+                "mint_tx_hash": transfer.mint_tx_hash,
+            }
+            self.log(f"[trigger] bridge transfer completed: {transfer_id}")
+            for action in self._bridge_completed_actions:
+                self._run_action(action, payload)
 
     def _save_state(self) -> None:
         """Persist current balances and block cursor to the state file."""
@@ -347,6 +387,8 @@ class MonitorAgent(BaseAgent):
                     self.log(f"[{addr[:10]}] Change: {delta:+d} wei ({event['type']})")
                     self._emit(event, callback)
                     self._last_balances[addr] = current_balance
+
+            self._evaluate_bridge_transfers()
 
             # Block-interval triggers
             if self._block_interval_triggers:

@@ -467,3 +467,76 @@ class TestMonitorAgent:
         fn = MagicMock(return_value=77)
         result = agent._call_rpc(fn, "x", y=2)
         assert result == 77
+
+    def test_on_bridge_completed_fires_once(self, mock_web3, tmp_path):
+        from decimal import Decimal
+
+        from arc_devkit.agents.monitor_agent import MonitorAgent
+        from arc_devkit.bridge.models import BridgeStatus, BridgeTransfer
+        from arc_devkit.bridge.store import save_transfer
+
+        transfer = BridgeTransfer(
+            id="bridge-1",
+            source_chain_id=5042002,
+            dest_chain_id=1,
+            sender="0x" + "a" * 40,
+            recipient="0x" + "b" * 40,
+            amount_usdc=Decimal("10"),
+            status=BridgeStatus.COMPLETE,
+            mint_tx_hash="0x" + "ff" * 32,
+        )
+        save_transfer(transfer, store_dir=tmp_path)
+
+        mock_web3.eth.get_balance.return_value = 0
+        fired = []
+
+        with (
+            patch("time.sleep"),
+            patch("arc_devkit.bridge.store._STORE_DIR", tmp_path),
+        ):
+            agent = MonitorAgent(
+                watched_address="0x" + "c" * 40,
+                interval_seconds=1,
+                watch_bridge_transfers=["bridge-1"],
+            )
+            agent.on_bridge_completed(lambda evt: fired.append(evt))
+            agent.execute(max_iterations=2)
+
+        assert len(fired) == 1
+        assert fired[0]["transfer_id"] == "bridge-1"
+        assert fired[0]["status"] == "complete"
+
+    def test_on_bridge_completed_not_fired_when_pending(self, mock_web3, tmp_path):
+        from decimal import Decimal
+
+        from arc_devkit.agents.monitor_agent import MonitorAgent
+        from arc_devkit.bridge.models import BridgeStatus, BridgeTransfer
+        from arc_devkit.bridge.store import save_transfer
+
+        transfer = BridgeTransfer(
+            id="bridge-2",
+            source_chain_id=5042002,
+            dest_chain_id=1,
+            sender="0x" + "a" * 40,
+            recipient="0x" + "b" * 40,
+            amount_usdc=Decimal("10"),
+            status=BridgeStatus.PENDING_ATTESTATION,
+        )
+        save_transfer(transfer, store_dir=tmp_path)
+
+        mock_web3.eth.get_balance.return_value = 0
+        fired = []
+
+        with (
+            patch("time.sleep"),
+            patch("arc_devkit.bridge.store._STORE_DIR", tmp_path),
+        ):
+            agent = MonitorAgent(
+                watched_address="0x" + "c" * 40,
+                interval_seconds=1,
+                watch_bridge_transfers=["bridge-2"],
+            )
+            agent.on_bridge_completed(lambda evt: fired.append(evt))
+            agent.execute(max_iterations=1)
+
+        assert fired == []
