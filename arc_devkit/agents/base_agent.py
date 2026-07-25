@@ -74,6 +74,14 @@ class BaseAgent(ABC):
             account = Account.from_key(_key)
             self._address: str | None = account.address
             self._private_key: str | None = _key
+
+            from arc_devkit.core.signer import LocalKeySigner
+
+            # Prepares the pluggable Signer interface (core/signer.py) for
+            # future hardware-wallet/post-quantum backends — subclasses still
+            # sign via self._private_key today; this is additive, not a
+            # behavior change.
+            self._signer: LocalKeySigner | None = LocalKeySigner(_key)
             logger.info(
                 "[%s] Initialized with wallet %s",
                 self.__class__.__name__,
@@ -82,6 +90,7 @@ class BaseAgent(ABC):
         else:
             self._address = None
             self._private_key = None
+            self._signer = None
             logger.warning(
                 "[%s] No private key — read-only mode.",
                 self.__class__.__name__,

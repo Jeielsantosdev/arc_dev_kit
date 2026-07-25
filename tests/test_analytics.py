@@ -91,7 +91,7 @@ class TestPortfolioAnalyzer:
 
         w3 = _make_w3()
         # Patch USDCToken so we don't need a real contract
-        with patch("arc_devkit.usdc.token.USDCToken") as MockUSDC:
+        with patch("arc_devkit.stablecoins.token.USDCToken") as MockUSDC:
             mock_token = MagicMock()
             mock_token.balance.return_value = Decimal("100.50")
             MockUSDC.return_value = mock_token
@@ -466,3 +466,75 @@ class TestBalanceHistory:
         data = json.loads(result.output)
         assert isinstance(data, list)
         assert len(data) == 1
+
+
+class TestUnifiedBalance:
+    def test_unified_balance_sums_arc_and_other_chains(self):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        w3 = _make_w3()
+        w3.eth.chain_id = 5042002
+
+        with patch("arc_devkit.stablecoins.token.USDCToken") as MockUSDC:
+            arc_token = MagicMock()
+            arc_token.balance.return_value = Decimal("10")
+            other_token = MagicMock()
+            other_token.balance.return_value = Decimal("5")
+            MockUSDC.side_effect = [arc_token, other_token]
+
+            analyzer = PortfolioAnalyzer(w3=w3, usdc_contract="0x" + "c" * 40)
+            result = analyzer.unified_balance(
+                "0x" + "a" * 40,
+                other_chains=[
+                    {
+                        "chain_id": 1,
+                        "rpc_url": "https://eth.example.com",
+                        "usdc_contract": "0x" + "d" * 40,
+                        "label": "ethereum",
+                    }
+                ],
+            )
+
+        assert result.total_usdc == Decimal("15")
+        assert len(result.chains) == 2
+        assert result.chains[0].label == "arc-testnet"
+        assert result.chains[1].label == "ethereum"
+
+    def test_unified_balance_handles_chain_error_gracefully(self):
+        from arc_devkit.analytics.portfolio import PortfolioAnalyzer
+
+        w3 = _make_w3()
+        w3.eth.chain_id = 5042002
+
+        with patch("arc_devkit.stablecoins.token.USDCToken") as MockUSDC:
+            arc_token = MagicMock()
+            arc_token.balance.return_value = Decimal("10")
+            MockUSDC.side_effect = [arc_token, Exception("boom")]
+
+            analyzer = PortfolioAnalyzer(w3=w3, usdc_contract="0x" + "c" * 40)
+            result = analyzer.unified_balance(
+                "0x" + "a" * 40,
+                other_chains=[
+                    {
+                        "chain_id": 1,
+                        "rpc_url": "https://eth.example.com",
+                        "usdc_contract": "0x" + "d" * 40,
+                    }
+                ],
+            )
+
+        assert result.total_usdc == Decimal("10")
+        assert result.chains[1].error is not None
+        assert result.chains[1].usdc_balance is None
+
+    def test_unified_balance_to_dict_serializes(self):
+        from arc_devkit.analytics.portfolio import ChainBalance, PortfolioAnalyzer, UnifiedBalance
+
+        ub = UnifiedBalance(
+            address="0x" + "a" * 40,
+            total_usdc=Decimal("15"),
+            chains=[ChainBalance(chain_id=1, label="arc-testnet", usdc_balance=Decimal("10"))],
+        )
+        data = PortfolioAnalyzer.unified_balance_to_dict(ub)
+        assert data["total_usdc"] == "15"
+        assert data["chains"][0]["usdc_balance"] == "10"

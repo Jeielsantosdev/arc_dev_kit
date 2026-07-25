@@ -112,7 +112,11 @@ class PaymentAgent(BaseAgent):
 
     def _build_usdc_signed_tx(self, to: str, amount: Decimal) -> tuple:
         """Build and sign a USDC ERC-20 transfer tx; return (signed, gas_limit)."""
-        from arc_devkit.usdc.token import _ERC20_ABI, USDC_ARC_TESTNET_ADDRESS, USDC_MULTIPLIER
+        from arc_devkit.stablecoins.token import (
+            _ERC20_ABI,
+            USDC_ARC_TESTNET_ADDRESS,
+            USDC_MULTIPLIER,
+        )
 
         usdc_address = Web3.to_checksum_address(USDC_ARC_TESTNET_ADDRESS)
         contract = self._w3.eth.contract(address=usdc_address, abi=_ERC20_ABI)
@@ -147,6 +151,7 @@ class PaymentAgent(BaseAgent):
         force: bool = False,
         rbf: bool = False,
         trigger: str = "manual",
+        use_paymaster: bool = False,
     ) -> dict:
         """
         Build and sign a payment transaction.
@@ -167,12 +172,26 @@ class PaymentAgent(BaseAgent):
             force: Skip the pre-broadcast simulation check (use with care).
             rbf: On receipt timeout, resend with +10% gas price (replace-by-fee).
             trigger: Label recorded in the audit log ("manual", "on_low_balance", ...).
+            use_paymaster: Pay the network fee via a paymaster instead of the
+                           sender's own gas balance. Fails clearly until Arc
+                           publishes a paymaster (see arc_devkit.paymaster).
 
         Returns:
             Dict with status and transaction details.
         """
         if not self._private_key:
             return {"status": "error", "error": "Private key required to sign transactions."}
+
+        if use_paymaster:
+            from arc_devkit.config import settings
+            from arc_devkit.paymaster.detector import detect_paymaster
+
+            paymaster = detect_paymaster(settings.arc_network)
+            if not paymaster.available:
+                return {
+                    "status": "error",
+                    "error": f"use_paymaster requested but unavailable: {paymaster.reason}",
+                }
 
         try:
             destinatario = Web3.to_checksum_address(to)

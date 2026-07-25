@@ -1,0 +1,53 @@
+---
+title: "MCP Server"
+description: "Servidor MCP próprio do Arc DevKit — expõe tools on-chain para Claude Code e outros clientes."
+section: "Módulos"
+order: 35
+---
+
+O Arc DevKit expõe suas próprias tools read-only como um servidor [MCP](https://modelcontextprotocol.io) — permitindo que Claude Code ou qualquer outro cliente MCP consulte a blockchain Arc diretamente.
+
+## Instalação
+
+```bash
+pip install "arc-devkit[mcp]"
+```
+
+## Rodando o servidor
+
+```bash
+arcdevkit mcp serve
+```
+
+Roda um servidor `FastMCP("arc-devkit")` sobre stdio.
+
+## Configurando em um cliente MCP
+
+```json
+{
+  "mcpServers": {
+    "arc-devkit": {
+      "command": "arcdevkit",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+## Tools expostas
+
+Todas são **somente leitura** — nenhuma assina ou transmite transações.
+
+| Tool | Descrição |
+|---|---|
+| `get_balance` | Saldo nativo ARC de um endereço |
+| `get_block_info` | Bloco atual, chain ID, preço do gas |
+| `get_fee_quote` | Cotação de fee em USDC (nativo ou USDC) |
+| `debug_transaction` | Análise de transação (status, custo, revert) |
+| `get_bridge_status` | Status de uma transferência CCTP pelo id |
+| `get_agent_reputation` | Reputação ERC-8004 de um agente |
+| `call_view_function` | Chamada a função view/pure de qualquer contrato |
+
+<Callout type="tip" title="Mesmas tools do Copilot agêntico">
+  Este servidor reexpõe as mesmas capacidades usadas internamente por `DevCopilot.run_agent()` (veja [Dev Copilot](/docs/modules/dev-copilot)) — mas para clientes MCP externos, não só para o próprio Copilot do DevKit.
+</Callout>

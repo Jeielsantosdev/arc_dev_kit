@@ -251,6 +251,43 @@ def test_websocket_monitor_accepts_connection():
             assert data.get("event_type") == "ping"
 
 
+def test_websocket_monitor_rejects_missing_api_key(monkeypatch):
+    """WebSocket /agents/monitor/{address} must enforce API_KEY like the REST routes."""
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    from arc_devkit.api.main import app
+
+    monkeypatch.setenv("API_KEY", "secret-key")
+
+    client = TestClient(app)
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect(f"/agents/monitor/{_ADDRESS}") as ws:
+            ws.receive_json()
+
+
+def test_websocket_monitor_accepts_valid_api_key(monkeypatch):
+    """WebSocket /agents/monitor/{address} accepts the connection when api_key matches."""
+    from fastapi.testclient import TestClient
+
+    from arc_devkit.api.main import app
+
+    monkeypatch.setenv("API_KEY", "secret-key")
+
+    with (
+        patch("arc_devkit.core.connection.get_web3", return_value=_mock_w3()),
+        patch(
+            "arc_devkit.agents.async_monitor.AsyncMonitorAgent.execute", new_callable=AsyncMock
+        ) as mock_exec,
+    ):
+        mock_exec.return_value = {"status": "done", "iterations": 0}
+
+        client = TestClient(app)
+        with client.websocket_connect(f"/agents/monitor/{_ADDRESS}?api_key=secret-key") as ws:
+            data = ws.receive_json()
+            assert data.get("event_type") == "ping"
+
+
 # ---------------------------------------------------------------------------
 # AsyncMonitorAgent — state persistence and webhook
 # ---------------------------------------------------------------------------

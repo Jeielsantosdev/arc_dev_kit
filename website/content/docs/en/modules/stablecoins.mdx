@@ -1,0 +1,63 @@
+---
+title: "Stablecoins (USDC/EURC)"
+description: "Generic StablecoinToken for USDC and EURC — 6 decimals."
+section: "Modules"
+order: 31
+---
+
+The `arc_devkit.stablecoins` module generalizes the former `usdc/token.py` into a single wrapper for any Circle stablecoin on Arc.
+
+## Import
+
+```python
+from arc_devkit.stablecoins import USDCToken, EURCToken, StablecoinToken
+```
+
+<Callout type="tip" title="Backward compatible">
+  `arc_devkit.usdc.token` still works as a re-export shim — existing code importing from there won't break. New code should import from `arc_devkit.stablecoins`.
+</Callout>
+
+## USDC
+
+```python
+usdc = USDCToken(contract_address="0xContractAddress")
+balance = usdc.balance("0xWallet")
+print(f"{balance} USDC")
+```
+
+## EURC
+
+```python
+eurc = EURCToken(contract_address="0xEURCAddress")
+balance = eurc.balance("0xWallet")
+```
+
+<Callout type="warning" title="No default EURC address">
+  Unlike USDC (which has a testnet placeholder address), `EURCToken` requires an explicit `contract_address` — no EURC address has been published by Circle on Arc yet.
+</Callout>
+
+## Transfers and approve
+
+```python
+tx_hash = usdc.transfer(to="0xRecipient", amount=Decimal("10.5"), private_key="0x...")
+tx_hash = usdc.approve(spender="0xContract", amount=Decimal("100"), private_key="0x...")
+allowance = usdc.allowance(owner="0xOwner", spender="0xContract")
+```
+
+## API reference
+
+### `StablecoinToken(contract_address, w3=None, symbol="USDC", decimals=6)`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `contract_address` | `str` | ERC-20 contract address |
+| `w3` | `Web3 \| None` | Optional instance (uses `get_web3()` by default) |
+| `symbol` | `str` | Display ticker (e.g. `"USDC"`, `"EURC"`) |
+| `decimals` | `int` | Decimal places (Circle uses 6 for every stablecoin on Arc) |
+
+| Method | Description |
+|---|---|
+| `balance(address)` | Balance as `Decimal` |
+| `allowance(owner, spender)` | Current allowance |
+| `transfer(to, amount, private_key)` | Transfers and returns the tx hash |
+| `approve(spender, amount, private_key)` | Approves spending and returns the tx hash |

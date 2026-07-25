@@ -63,6 +63,103 @@ def test_execute_debug_transaction_invalid_hash_is_error():
 
 
 # ---------------------------------------------------------------------------
+# New Sprint 5 tools
+# ---------------------------------------------------------------------------
+
+
+def test_execute_get_fee_quote(mock_web3):
+    mock_web3.eth.gas_price = 1_000_000_000
+    mock_web3.from_wei.return_value = "0.000021"
+    result, is_error = execute_tool(
+        "get_fee_quote", {"to": _VALID_ADDRESS, "amount": 5.0, "token": "native"}
+    )
+    assert is_error is False
+    assert "fee_usdc" in result
+
+
+def test_execute_get_fee_quote_invalid_address_is_error():
+    result, is_error = execute_tool("get_fee_quote", {"to": "bad", "amount": 1.0})
+    assert is_error is True
+
+
+def test_execute_get_bridge_status_not_found(tmp_path):
+    with patch("arc_devkit.bridge.store._STORE_DIR", tmp_path):
+        result, is_error = execute_tool("get_bridge_status", {"transfer_id": "nope"})
+    assert is_error is False
+    assert '"found": false' in result
+
+
+def test_execute_get_bridge_status_found(tmp_path):
+    from decimal import Decimal
+
+    from arc_devkit.bridge.models import BridgeTransfer
+    from arc_devkit.bridge.store import save_transfer
+
+    transfer = BridgeTransfer(
+        id="abc",
+        source_chain_id=1,
+        dest_chain_id=2,
+        sender="0x" + "a" * 40,
+        recipient=_VALID_ADDRESS,
+        amount_usdc=Decimal("5"),
+    )
+    save_transfer(transfer, store_dir=tmp_path)
+
+    with patch("arc_devkit.bridge.store._STORE_DIR", tmp_path):
+        result, is_error = execute_tool("get_bridge_status", {"transfer_id": "abc"})
+    assert is_error is False
+    assert '"found": true' in result
+
+
+def test_execute_get_agent_reputation_invalid_address_is_error():
+    result, is_error = execute_tool(
+        "get_agent_reputation",
+        {"agent_id": 1, "identity_registry": "bad", "reputation_registry": "bad"},
+    )
+    assert is_error is True
+
+
+def test_execute_get_agent_reputation_not_found(mock_web3):
+    with patch("arc_devkit.agents.identity.AgentRegistry.get_reputation", return_value=None):
+        result, is_error = execute_tool(
+            "get_agent_reputation",
+            {
+                "agent_id": 1,
+                "identity_registry": _VALID_ADDRESS,
+                "reputation_registry": _VALID_ADDRESS,
+            },
+        )
+    assert is_error is False
+    assert '"found": false' in result
+
+
+def test_execute_search_arc_docs_not_configured():
+    result, is_error = execute_tool("search_arc_docs", {"query": "fees"})
+    assert is_error is False
+    assert '"available": false' in result
+    assert "not configured" in result.lower()
+
+
+def test_execute_search_arc_docs_configured_returns_matches():
+    mock_settings = MagicMock()
+    mock_settings.arc_llms_txt_url = "https://example.test/llms.txt"
+
+    mock_response = MagicMock()
+    mock_response.text = "Fees on Arc are paid in USDC.\n\nSomething unrelated."
+    mock_response.raise_for_status.return_value = None
+
+    with (
+        patch("arc_devkit.config.settings", mock_settings),
+        patch("httpx.get", return_value=mock_response),
+    ):
+        result, is_error = execute_tool("search_arc_docs", {"query": "fees"})
+
+    assert is_error is False
+    assert '"available": true' in result
+    assert "USDC" in result
+
+
+# ---------------------------------------------------------------------------
 # Agentic loop (DevCopilot.run_agent)
 # ---------------------------------------------------------------------------
 

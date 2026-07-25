@@ -33,16 +33,27 @@ Building on Arc exposes you to a series of practical friction points that Arc De
 ```
 arc_devkit/
 ├── copilot/         Dev Copilot — AI with built-in Arc context
-├── agents/          Payment Agent, Monitor Agent, Async Monitor
+├── agents/          Payment Agent, Monitor Agent, Async Monitor,
+│                    identity.py + jobs.py (ERC-8004/8183 agentic economy)
 ├── debugger/        Tx Debugger — decode and analyze transactions
 ├── analytics/       Portfolio Analyzer — balance, history, score
-├── usdc/            USDCToken — ERC-20 wrapper
+├── stablecoins/     StablecoinToken — USDC and EURC (usdc/ kept as a shim)
+├── networks.py      Testnet/mainnet network profiles
+├── paymaster/       Paymaster detection + ERC-4337 helpers
+├── bridge/          CCTP — cross-chain USDC bridge
+├── oracle/          Price feed client (Chainlink-compatible)
+├── privacy/         View-key encryption + confidential transfers
 ├── contracts/       Utilities for EVM contracts
 ├── events/          Event Listener — on-chain log polling
 ├── deploy/          Contract Deployer
 ├── api/             FastAPI server with SSE and WebSocket
+├── mcp_server.py    Arc DevKit's own MCP server — `arcdevkit mcp serve`
 └── cli/             CLI `arc` and `arcdevkit`
 ```
+
+<Callout type="tip" title="2026 H2 roadmap">
+  The sections marked as new above are part of the `SPRINTS_2026H2.md` roadmap — covering multi-network config, fees/paymaster, the CCTP bridge, the agentic economy (ERC-8004/8183), the MCP server, and privacy/post-quantum prep. See the [Modules](#modules) section in the sidebar for full documentation of each one.
+</Callout>
 
 ## Requirements
 

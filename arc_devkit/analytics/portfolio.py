@@ -30,6 +30,31 @@ class TransactionSummary:
 
 
 @dataclass
+class ChainBalance:
+    """USDC balance on one chain, part of a UnifiedBalance view."""
+
+    chain_id: int
+    label: str
+    usdc_balance: Decimal | None  # None if the query failed
+    error: str | None = None
+
+
+@dataclass
+class UnifiedBalance:
+    """Chain-agnostic USDC balance for one address across Arc + other EVM chains.
+
+    Mirrors Circle's Unified Balance concept (App Kits) by aggregating USDC
+    ERC-20 balance queries across explicitly-supplied chains — this SDK has
+    no built-in registry of other chains' RPCs/USDC addresses, so callers
+    supply them (see PortfolioAnalyzer.unified_balance()).
+    """
+
+    address: str
+    total_usdc: Decimal
+    chains: list[ChainBalance]
+
+
+@dataclass
 class PortfolioSnapshot:
     """Point-in-time view of a wallet's portfolio on Arc."""
 
@@ -133,6 +158,63 @@ class PortfolioAnalyzer:
             activity_score=score,
         )
 
+    def unified_balance(
+        self,
+        address: str,
+        other_chains: list[dict] | None = None,
+    ) -> UnifiedBalance:
+        """
+        Chain-agnostic USDC balance across Arc plus any other EVM chains.
+
+        Args:
+            address: EVM address (checksummed or not) — same address on every chain.
+            other_chains: Chains to include besides Arc, each a dict with keys
+                          "chain_id" (int), "rpc_url" (str), "usdc_contract" (str),
+                          and optional "label" (str). A chain that fails to
+                          respond is recorded with its error, not raised.
+
+        Returns:
+            UnifiedBalance with the summed total and a per-chain breakdown.
+        """
+        from arc_devkit.core.validation import validate_address
+
+        checksum = Web3.to_checksum_address(validate_address(address))
+
+        chains: list[ChainBalance] = []
+        total = Decimal("0")
+
+        from arc_devkit.config import settings
+
+        arc_balance = self._fetch_usdc_balance(checksum)
+        chains.append(
+            ChainBalance(
+                chain_id=self._w3.eth.chain_id,
+                label=f"arc-{settings.arc_network}",
+                usdc_balance=arc_balance,
+            )
+        )
+        if arc_balance is not None:
+            total += arc_balance
+
+        for chain in other_chains or []:
+            chain_id = chain["chain_id"]
+            label = chain.get("label", str(chain_id))
+            try:
+                chain_w3 = Web3(Web3.HTTPProvider(chain["rpc_url"]))
+                from arc_devkit.stablecoins.token import USDCToken
+
+                token = USDCToken(contract_address=chain["usdc_contract"], w3=chain_w3)
+                balance = token.balance(checksum)
+                chains.append(ChainBalance(chain_id=chain_id, label=label, usdc_balance=balance))
+                total += balance
+            except Exception as exc:
+                logger.warning("Unified balance: chain %s unavailable: %s", label, exc)
+                chains.append(
+                    ChainBalance(chain_id=chain_id, label=label, usdc_balance=None, error=str(exc))
+                )
+
+        return UnifiedBalance(address=checksum, total_usdc=total, chains=chains)
+
     def save_snapshot(
         self,
         snapshot: PortfolioSnapshot,
@@ -231,13 +313,30 @@ class PortfolioAnalyzer:
             ],
         }
 
+    @staticmethod
+    def unified_balance_to_dict(unified: UnifiedBalance) -> dict:
+        """Convert a UnifiedBalance to a JSON-serializable dict."""
+        return {
+            "address": unified.address,
+            "total_usdc": str(unified.total_usdc),
+            "chains": [
+                {
+                    "chain_id": c.chain_id,
+                    "label": c.label,
+                    "usdc_balance": str(c.usdc_balance) if c.usdc_balance is not None else None,
+                    "error": c.error,
+                }
+                for c in unified.chains
+            ],
+        }
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
     def _fetch_usdc_balance(self, address: str) -> Decimal | None:
         """Return USDC balance or None if contract is not yet deployed."""
-        from arc_devkit.usdc.token import USDC_ARC_TESTNET_ADDRESS, USDCToken
+        from arc_devkit.stablecoins.token import USDC_ARC_TESTNET_ADDRESS, USDCToken
 
         contract_addr = self._usdc_contract or USDC_ARC_TESTNET_ADDRESS
         if contract_addr == "0x0000000000000000000000000000000000000000":

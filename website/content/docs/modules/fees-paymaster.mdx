@@ -1,0 +1,70 @@
+---
+title: "Fees & Paymaster"
+description: "Cotação de fee em USDC e detecção de paymaster (ERC-4337)."
+section: "Módulos"
+order: 32
+---
+
+Alinhado ao **Stable Fee Design** da Arc: o gas é sempre denominado em USDC, independente do que está sendo transferido (ARC nativo ou um ERC-20 como USDC/EURC).
+
+## Cotação de fee
+
+```python
+from arc_devkit.core.gas import quote_fee
+
+quote = quote_fee(to="0xDestino", amount=5.0, token="native")
+print(quote["fee_usdc"])              # custo em USDC
+print(quote["paymaster_available"])   # False hoje
+```
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | `str` | Endereço destinatário |
+| `amount` | `float` | Valor a transferir |
+| `token` | `str` | `"native"` ou `"usdc"` |
+| `from_address` | `str \| None` | Remetente (opcional, estimativa mais precisa) |
+
+## Paymaster (Account Abstraction)
+
+```python
+from arc_devkit.paymaster import detect_paymaster
+
+info = detect_paymaster("testnet")
+print(info.available)  # False — nenhum paymaster publicado pela Arc ainda
+print(info.reason)
+```
+
+<Callout type="warning" title="Paymaster ainda não existe na Arc">
+  `detect_paymaster()` sempre retorna `available=False` hoje. `PaymentAgent.execute(..., use_paymaster=True)` falha com um erro claro em vez de fingir que patrocina a fee.
+</Callout>
+
+## ERC-4337 UserOperation
+
+Helpers padrão (agnósticos de chain) para quando a Arc publicar infraestrutura de Account Abstraction:
+
+```python
+from arc_devkit.paymaster import build_user_operation, submit_user_operation
+
+user_op = build_user_operation(
+    sender="0xSmartAccount",
+    nonce=0,
+    call_data="0x...",
+    gas_price_wei=1_000_000_000,
+)
+
+# Requer um bundler real informado explicitamente — nenhum é assumido
+result = submit_user_operation(user_op, bundler_url="https://seu-bundler...", entry_point="0x...")
+```
+
+## CLI
+
+```bash
+arcdevkit fees quote 0xDestino... 5.0
+arcdevkit fees quote 0xDestino... 5.0 --token usdc
+```
+
+## API REST
+
+```bash
+curl "http://localhost:8000/fees/quote?to=0xDestino...&amount=5.0"
+```

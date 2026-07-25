@@ -162,3 +162,27 @@ class TestReplaceByFee:
         agent = PaymentAgent(private_key=None)
         result = agent.speed_up("0x" + "a" * 64)
         assert result["status"] == "error"
+
+
+class TestUsePaymaster:
+    def test_use_paymaster_fails_clearly_when_unavailable(self, mock_web3, signed_mock):
+        from arc_devkit.agents.payment_agent import PaymentAgent
+
+        agent = PaymentAgent(private_key=_KEY)
+        result = agent.execute(
+            to=_TO, amount_usdc=1.0, enviar=True, wait_receipt=False, use_paymaster=True
+        )
+
+        assert result["status"] == "error"
+        assert "paymaster" in result["error"].lower()
+        mock_web3.eth.send_raw_transaction.assert_not_called()
+
+    def test_use_paymaster_false_does_not_check_paymaster(self, mock_web3, signed_mock):
+        from arc_devkit.agents.payment_agent import PaymentAgent
+
+        agent = PaymentAgent(private_key=_KEY)
+        result = agent.execute(
+            to=_TO, amount_usdc=1.0, enviar=True, wait_receipt=False, use_paymaster=False
+        )
+
+        assert result["status"] == "sent"

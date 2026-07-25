@@ -202,3 +202,60 @@ arc --install-completion fish
 ```
 
 After installing, restart your shell. You can then press Tab after `arc` to autocomplete commands and flags.
+
+---
+
+## 10. Two agents negotiating a job (ERC-8183 escrow)
+
+A "requester" hires an "agent" to do work, with USDC held in escrow until
+the deliverable is settled. No canonical Job Registry address is published
+for Arc yet — this recipe requires your own test deployment implementing
+the interface in `arc_devkit.agents.jobs` (see `examples/06_agent_job_negotiation.py`
+for the full runnable script).
+
+```python
+from decimal import Decimal
+
+from arc_devkit.agents.jobs import JobRegistry
+from arc_devkit.core.connection import get_web3
+
+w3 = get_web3()
+registry = JobRegistry(w3=w3, registry_address="0xYourJobRegistry")
+
+# Requester creates a job with escrow (requester must have already
+# approve()'d the registry contract to spend the USDC amount)
+job = registry.create_job(
+    agent_address="0xAgentWallet...",
+    amount_usdc=Decimal("5.0"),
+    spec="Summarize the Arc whitepaper",
+    private_key="0xRequesterKey...",
+)
+
+# Agent accepts and delivers
+job = registry.accept_job(job.job_id, private_key="0xAgentKey...")
+job = registry.deliver_job(job.job_id, "ipfs://Qm.../summary.md", private_key="0xAgentKey...")
+
+# Requester releases the escrow
+job = registry.settle_job(job.job_id, private_key="0xRequesterKey...")
+print(job.status)  # JobStatus.SETTLED
+```
+
+For fully autonomous agents that poll for and execute jobs within
+guardrails, see `arc_devkit.agents.job_agent.JobAgent`:
+
+```python
+from arc_devkit.agents.job_agent import JobAgent
+from arc_devkit.agents.guardrails import Guardrails
+
+agent = JobAgent(
+    registry_address="0xYourJobRegistry",
+    private_key="0xAgentKey...",
+    guardrails=Guardrails.from_settings(),
+)
+
+def do_the_work(job) -> str:
+    return "ipfs://Qm.../result.md"  # produce the deliverable
+
+result = agent.execute(job_id=1, handler=do_the_work)
+print(result["status"])  # "delivered"
+```

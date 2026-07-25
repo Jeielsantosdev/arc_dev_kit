@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arc-devkit"
-version = "0.4.7"
+version = "0.8.0"
 description = "Plataforma open source de ferramentas para desenvolvedores da Arc blockchain (Circle)"
 readme = "README.md"
 license = "MIT"
@@ -59,10 +59,21 @@ dev = [
     "pip-audit>=2.7",
     # httpx já está nas deps principais; listado aqui para clareza nos testes
     "httpx>=0.27",
+    # Cassettes HTTP para testes de regressão RPC offline (tests/cassettes/)
+    "vcrpy>=6.0",
+    # Servidor MCP próprio — necessário para rodar tests/test_mcp_server.py
+    "mcp>=1.2",
+    # Testes de carga da REST API (locustfile.py)
+    "locust>=2.29",
 ]
 # Armazenamento da chave privada no keyring do SO (arc config keyring-set)
 security = [
     "keyring>=24",
+]
+# Servidor MCP próprio (arcdevkit mcp serve) — expõe tools on-chain para
+# Claude Code e outros clientes MCP
+mcp = [
+    "mcp>=1.2",
 ]
 
 [project.scripts]

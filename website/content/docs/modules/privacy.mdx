@@ -1,0 +1,59 @@
+---
+title: "Privacidade (Experimental)"
+description: "Criptografia view-key para divulgação seletiva e transferências confidenciais."
+section: "Módulos"
+order: 38
+---
+
+`arc_devkit.privacy` traz primitivas experimentais de privacidade: criptografia **view-key** (funcional hoje, independente de qualquer protocolo on-chain) e um cliente para o futuro protocolo de transferências confidenciais da Arc.
+
+## Criptografia view-key
+
+Construção ECIES padrão (ECDH efêmero sobre secp256k1 → HKDF-SHA256 → AES-256-GCM), construída sobre primitivas auditadas da biblioteca `cryptography` — não é criptografia caseira.
+
+```python
+from arc_devkit.privacy.view_key import generate_view_keypair, encrypt_for_viewer, decrypt_as_viewer
+
+# O destinatário gera seu par de chaves
+viewer = generate_view_keypair()
+
+# Qualquer um pode criptografar dados para a chave pública do viewer
+payload = encrypt_for_viewer(viewer.public_key_bytes, b"saldo: 42.5 USDC")
+
+# Só o dono da chave privada consegue decriptar
+plaintext = decrypt_as_viewer(viewer.private_key, payload)
+```
+
+<Callout type="tip" title="Testado contra chave errada e adulteração">
+  `decrypt_as_viewer()` levanta exceção (`InvalidTag`) tanto para chave errada quanto para ciphertext adulterado — o AES-GCM garante autenticidade nativamente.
+</Callout>
+
+## CLI
+
+```bash
+arcdevkit privacy generate-view-key
+arcdevkit privacy encrypt <chave_publica_hex> "saldo: 42.5 USDC"
+```
+
+## Transferências confidenciais (protocolo on-chain)
+
+```python
+from arc_devkit.privacy.confidential_transfer import ConfidentialTransferClient
+
+client = ConfidentialTransferClient(w3=get_web3(), contract_address="0xContratoConfidencial")
+result = client.send_confidential(to="0xDestino", encrypted_amount=payload_bytes, private_key="0x...")
+```
+
+<Callout type="danger" title="Protocolo ainda não exposto na testnet">
+  `ConfidentialTransferClient` levanta erro sem um `contract_address` explícito — o protocolo de transferências confidenciais (baseado em TEE) da Arc ainda não está disponível na testnet.
+</Callout>
+
+## Referência da API
+
+| Função/Classe | Descrição |
+|---|---|
+| `generate_view_keypair()` | Gera um novo par de chaves secp256k1 |
+| `encrypt_for_viewer(pubkey_bytes, plaintext)` | Retorna `EncryptedPayload` |
+| `decrypt_as_viewer(privkey, payload)` | Retorna o plaintext original |
+| `EncryptedPayload.to_hex()` / `.from_hex()` | Serialização para transporte |
+| `ConfidentialTransferClient` | Cliente do contrato (experimental) |

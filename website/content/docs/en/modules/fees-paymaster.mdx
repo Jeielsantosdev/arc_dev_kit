@@ -1,0 +1,70 @@
+---
+title: "Fees & Paymaster"
+description: "USDC fee quoting and paymaster detection (ERC-4337)."
+section: "Modules"
+order: 32
+---
+
+Aligned with Arc's **Stable Fee Design**: gas is always denominated in USDC, regardless of what's being transferred (native ARC or an ERC-20 like USDC/EURC).
+
+## Fee quoting
+
+```python
+from arc_devkit.core.gas import quote_fee
+
+quote = quote_fee(to="0xRecipient", amount=5.0, token="native")
+print(quote["fee_usdc"])              # cost in USDC
+print(quote["paymaster_available"])   # False today
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `to` | `str` | Recipient address |
+| `amount` | `float` | Amount to transfer |
+| `token` | `str` | `"native"` or `"usdc"` |
+| `from_address` | `str \| None` | Sender (optional, more precise estimate) |
+
+## Paymaster (Account Abstraction)
+
+```python
+from arc_devkit.paymaster import detect_paymaster
+
+info = detect_paymaster("testnet")
+print(info.available)  # False — no paymaster published by Arc yet
+print(info.reason)
+```
+
+<Callout type="warning" title="No paymaster exists on Arc yet">
+  `detect_paymaster()` always returns `available=False` today. `PaymentAgent.execute(..., use_paymaster=True)` fails clearly instead of pretending to sponsor the fee.
+</Callout>
+
+## ERC-4337 UserOperation
+
+Standard, chain-agnostic helpers for when Arc publishes Account Abstraction infrastructure:
+
+```python
+from arc_devkit.paymaster import build_user_operation, submit_user_operation
+
+user_op = build_user_operation(
+    sender="0xSmartAccount",
+    nonce=0,
+    call_data="0x...",
+    gas_price_wei=1_000_000_000,
+)
+
+# Requires a real bundler passed explicitly — none is assumed
+result = submit_user_operation(user_op, bundler_url="https://your-bundler...", entry_point="0x...")
+```
+
+## CLI
+
+```bash
+arcdevkit fees quote 0xRecipient... 5.0
+arcdevkit fees quote 0xRecipient... 5.0 --token usdc
+```
+
+## REST API
+
+```bash
+curl "http://localhost:8000/fees/quote?to=0xRecipient...&amount=5.0"
+```

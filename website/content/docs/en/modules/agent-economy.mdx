@@ -1,0 +1,108 @@
+---
+title: "Agentic Economy (ERC-8004/8183)"
+description: "Agent identity/reputation (ERC-8004) and job escrow marketplace (ERC-8183)."
+section: "Modules"
+order: 34
+---
+
+Support for two very recent EIPs (2025) that define on-chain infrastructure for autonomous economic agents: **ERC-8004** (identity + reputation) and **ERC-8183** (jobs with escrow).
+
+<Callout type="warning" title="No canonical registry published yet">
+  ERC-8004/8183 have no confirmed official deployment address for Arc (nor cross-chain). `AgentRegistry` and `JobRegistry` always require an explicit registry address — the default ABIs are this SDK's best-effort reconstruction of the draft spec, overridable via `abi=`.
+</Callout>
+
+## Identity and reputation (ERC-8004)
+
+```python
+from arc_devkit.agents.identity import AgentRegistry
+from arc_devkit.core.connection import get_web3
+
+registry = AgentRegistry(w3=get_web3(), identity_registry_address="0xYourRegistry")
+
+identity = registry.register(domain="myagent.eth", private_key="0xYourKey")
+print(identity.agent_id)
+
+score = registry.get_reputation(agent_id=identity.agent_id)
+print(score.average)
+```
+
+## Jobs with escrow (ERC-8183)
+
+```python
+from decimal import Decimal
+from arc_devkit.agents.jobs import JobRegistry
+
+jobs = JobRegistry(w3=get_web3(), registry_address="0xYourJobRegistry")
+
+# Requester creates the job (requires a prior USDC approve() on the contract)
+job = jobs.create_job(
+    agent_address="0xAgentAddress",
+    amount_usdc=Decimal("25.0"),
+    spec="Summarize the Arc whitepaper",
+    private_key="0xRequesterKey",
+)
+
+# Agent accepts, delivers, and the requester releases escrow
+job = jobs.accept_job(job.job_id, private_key="0xAgentKey")
+job = jobs.deliver_job(job.job_id, "ipfs://Qm.../result.md", private_key="0xAgentKey")
+job = jobs.settle_job(job.job_id, private_key="0xRequesterKey")
+```
+
+<Callout type="tip" title="Never raises">
+  Every `JobRegistry` method returns a `Job` with `.error` set on failure instead of raising an exception — easier to handle in automated pipelines.
+</Callout>
+
+## Autonomous job execution
+
+```python
+from arc_devkit.agents.job_agent import JobAgent
+from arc_devkit.agents.guardrails import Guardrails
+
+agent = JobAgent(
+    registry_address="0xYourJobRegistry",
+    private_key="0xAgentKey",
+    guardrails=Guardrails.from_settings(),
+)
+
+def do_the_work(job) -> str:
+    return "ipfs://Qm.../result.md"
+
+result = agent.execute(job_id=1, handler=do_the_work)
+print(result["status"])  # "delivered"
+```
+
+## Hiring via CoordinatorAgent
+
+```python
+from arc_devkit.agents.coordinator import CoordinatorAgent
+
+coordinator = CoordinatorAgent(guardrails=Guardrails.from_settings())
+coordinator.register_payment_agent(payment_agent)
+
+job = coordinator.hire_agent(job_registry, "0xAgent...", 25.0, "summarize this PDF")
+```
+
+## CLI
+
+```bash
+arcdevkit agent register myagent.eth --registry 0x...
+arcdevkit agent reputation 42 --registry 0x... --reputation-registry 0x...
+
+arcdevkit agent job create 0xAgent... 25.0 --spec "..." --registry 0x...
+arcdevkit agent job accept 1 --registry 0x...
+arcdevkit agent job deliver 1 "ipfs://..." --registry 0x...
+arcdevkit agent job settle 1 --registry 0x...
+arcdevkit agent job status 1 --registry 0x...
+```
+
+## REST API
+
+```bash
+POST /agents/register
+GET  /agents/reputation/{agent_id}
+POST /agents/jobs
+GET  /agents/jobs/{job_id}
+POST /agents/jobs/{job_id}/settle
+```
+
+See the [Cookbook](/docs/cookbook) for the full example of two agents negotiating a job end to end.

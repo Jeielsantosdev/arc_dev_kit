@@ -6,6 +6,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 app = typer.Typer(help="Wallet and economic agent management for Arc.")
+job_app = typer.Typer(help="ERC-8183 job marketplace: create, accept, deliver, settle.")
+app.add_typer(job_app, name="job")
 console = Console()
 
 
@@ -276,3 +278,265 @@ def monitor(
     except KeyboardInterrupt:
         agente.stop()
         console.print("\n[dim]Monitoring stopped.[/dim]\n")
+
+
+# ---------------------------------------------------------------------------
+# ERC-8004 identity / reputation
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def register(
+    domain: str = typer.Argument(..., help="Domain identifying the agent (e.g. myagent.eth)."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8004 Identity Registry address."),
+    key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
+) -> None:
+    """
+    Register the caller's wallet as an on-chain agent (ERC-8004 Identity Registry).
+
+    No canonical Identity Registry address is published for Arc yet — point
+    --registry at your own deployment (see arc_devkit.agents.identity).
+
+    Example:
+      arcdevkit agent register myagent.eth --registry 0xRegistry...
+    """
+    from arc_devkit.agents.identity import AgentRegistry
+    from arc_devkit.config import settings
+    from arc_devkit.core.connection import get_web3
+
+    private_key = key or settings.arc_private_key
+    if not private_key:
+        console.print("\n[red]✗ Error:[/red] No private key configured.\n")
+        raise typer.Exit(1)
+
+    try:
+        registry_client = AgentRegistry(w3=get_web3(), identity_registry_address=registry)
+        with console.status("[bold]Registering agent...[/bold]", spinner="dots"):
+            identity = registry_client.register(domain, private_key)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    console.print(
+        Panel(
+            f"[bold]Agent ID:[/bold] {identity.agent_id}\n"
+            f"[bold]Domain:[/bold] {identity.domain}\n"
+            f"[bold]Address:[/bold] {identity.agent_address}\n"
+            f"[bold]TX:[/bold] {identity.tx_hash}",
+            title="[bold green]Agent Registered[/bold green]",
+            border_style="green",
+        )
+    )
+
+
+@app.command()
+def reputation(
+    agent_id: int = typer.Argument(..., help="On-chain agent id."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8004 Identity Registry address."),
+    reputation_registry: str = typer.Option(
+        ..., "--reputation-registry", help="ERC-8004 Reputation Registry address."
+    ),
+) -> None:
+    """
+    Show an agent's aggregated reputation (ERC-8004 Reputation Registry).
+
+    Example:
+      arcdevkit agent reputation 42 --registry 0x... --reputation-registry 0x...
+    """
+    from arc_devkit.agents.identity import AgentRegistry
+    from arc_devkit.core.connection import get_web3
+
+    try:
+        registry_client = AgentRegistry(
+            w3=get_web3(),
+            identity_registry_address=registry,
+            reputation_registry_address=reputation_registry,
+        )
+        score = registry_client.get_reputation(agent_id)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    if score is None:
+        console.print(f"\n[red]✗ Error:[/red] No reputation found for agent {agent_id}.\n")
+        raise typer.Exit(1)
+
+    tabela = Table(title=f"Reputation — Agent {agent_id}", header_style="bold magenta")
+    tabela.add_column("Field", style="bold", min_width=16)
+    tabela.add_column("Value")
+    tabela.add_row("Total Score", str(score.total_score))
+    tabela.add_row("Feedback Count", str(score.feedback_count))
+    tabela.add_row("Average", f"{score.average:.2f}")
+    console.print(tabela)
+
+
+# ---------------------------------------------------------------------------
+# ERC-8183 job marketplace
+# ---------------------------------------------------------------------------
+
+
+def _print_job(job) -> None:
+    tabela = Table(title="Job", header_style="bold cyan", border_style="cyan")
+    tabela.add_column("Field", style="bold", min_width=16)
+    tabela.add_column("Value")
+    tabela.add_row("Job ID", str(job.job_id))
+    tabela.add_row("Requester", job.requester)
+    tabela.add_row("Agent", job.agent)
+    tabela.add_row("Amount", f"{job.amount_usdc} USDC")
+    tabela.add_row("Spec", job.spec)
+    tabela.add_row("Status", job.status.value if hasattr(job.status, "value") else str(job.status))
+    if job.deliverable_uri:
+        tabela.add_row("Deliverable", job.deliverable_uri)
+    if job.tx_hash:
+        tabela.add_row("TX", job.tx_hash)
+    if job.error:
+        tabela.add_row("Error", f"[red]{job.error}[/red]")
+    console.print(tabela)
+
+
+@job_app.command(name="create")
+def job_create(
+    agent_address: str = typer.Argument(..., help="Address of the agent being hired."),
+    amount: float = typer.Argument(..., help="Escrow amount in USDC."),
+    spec: str = typer.Option(..., "--spec", help="Job specification / description."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8183 Job Registry address."),
+    key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
+) -> None:
+    """
+    Create a job with USDC escrow for another agent.
+
+    The registry contract must already be approve()'d to spend `amount` USDC
+    from your wallet (standard ERC-20 escrow pattern).
+
+    Example:
+      arcdevkit agent job create 0xAgent... 25.0 --spec "summarize this PDF" --registry 0x...
+    """
+    from decimal import Decimal
+
+    from arc_devkit.agents.jobs import JobRegistry
+    from arc_devkit.config import settings
+    from arc_devkit.core.connection import get_web3
+
+    private_key = key or settings.arc_private_key
+    if not private_key:
+        console.print("\n[red]✗ Error:[/red] No private key configured.\n")
+        raise typer.Exit(1)
+
+    try:
+        job_registry = JobRegistry(w3=get_web3(), registry_address=registry)
+        with console.status("[bold]Creating job...[/bold]", spinner="dots"):
+            job = job_registry.create_job(agent_address, Decimal(str(amount)), spec, private_key)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    _print_job(job)
+    if job.error:
+        raise typer.Exit(1)
+
+
+@job_app.command(name="accept")
+def job_accept(
+    job_id: int = typer.Argument(..., help="Job id to accept."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8183 Job Registry address."),
+    key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
+) -> None:
+    """Accept a job as the assigned agent."""
+    from arc_devkit.agents.jobs import JobRegistry
+    from arc_devkit.config import settings
+    from arc_devkit.core.connection import get_web3
+
+    private_key = key or settings.arc_private_key
+    if not private_key:
+        console.print("\n[red]✗ Error:[/red] No private key configured.\n")
+        raise typer.Exit(1)
+
+    try:
+        job_registry = JobRegistry(w3=get_web3(), registry_address=registry)
+        job = job_registry.accept_job(job_id, private_key)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    _print_job(job)
+    if job.error:
+        raise typer.Exit(1)
+
+
+@job_app.command(name="deliver")
+def job_deliver(
+    job_id: int = typer.Argument(..., help="Job id to deliver."),
+    deliverable: str = typer.Argument(..., help="Deliverable URI or result string."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8183 Job Registry address."),
+    key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
+) -> None:
+    """Submit a deliverable for an accepted job."""
+    from arc_devkit.agents.jobs import JobRegistry
+    from arc_devkit.config import settings
+    from arc_devkit.core.connection import get_web3
+
+    private_key = key or settings.arc_private_key
+    if not private_key:
+        console.print("\n[red]✗ Error:[/red] No private key configured.\n")
+        raise typer.Exit(1)
+
+    try:
+        job_registry = JobRegistry(w3=get_web3(), registry_address=registry)
+        job = job_registry.deliver_job(job_id, deliverable, private_key)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    _print_job(job)
+    if job.error:
+        raise typer.Exit(1)
+
+
+@job_app.command(name="settle")
+def job_settle(
+    job_id: int = typer.Argument(..., help="Job id to settle."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8183 Job Registry address."),
+    key: str = typer.Option("", "--key", help="Private key (overrides ARC_PRIVATE_KEY)."),
+) -> None:
+    """Release escrow to the agent for a delivered job."""
+    from arc_devkit.agents.jobs import JobRegistry
+    from arc_devkit.config import settings
+    from arc_devkit.core.connection import get_web3
+
+    private_key = key or settings.arc_private_key
+    if not private_key:
+        console.print("\n[red]✗ Error:[/red] No private key configured.\n")
+        raise typer.Exit(1)
+
+    try:
+        job_registry = JobRegistry(w3=get_web3(), registry_address=registry)
+        job = job_registry.settle_job(job_id, private_key)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    _print_job(job)
+    if job.error:
+        raise typer.Exit(1)
+
+
+@job_app.command(name="status")
+def job_status(
+    job_id: int = typer.Argument(..., help="Job id to look up."),
+    registry: str = typer.Option(..., "--registry", help="ERC-8183 Job Registry address."),
+) -> None:
+    """Show the current on-chain state of a job."""
+    from arc_devkit.agents.jobs import JobRegistry
+    from arc_devkit.core.connection import get_web3
+
+    try:
+        job_registry = JobRegistry(w3=get_web3(), registry_address=registry)
+        job = job_registry.get_job(job_id)
+    except Exception as exc:
+        console.print(f"\n[red]✗ Error:[/red] {exc}\n")
+        raise typer.Exit(1) from exc
+
+    if job is None:
+        console.print(f"\n[red]✗ Error:[/red] No job found with id {job_id}.\n")
+        raise typer.Exit(1)
+    _print_job(job)
