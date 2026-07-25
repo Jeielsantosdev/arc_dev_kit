@@ -1,0 +1,63 @@
+---
+title: "Stablecoins (USDC/EURC)"
+description: "StablecoinToken genérico para USDC e EURC — 6 decimais."
+section: "Módulos"
+order: 31
+---
+
+O módulo `arc_devkit.stablecoins` generaliza o antigo `usdc/token.py` em um wrapper único para qualquer stablecoin da Circle na Arc.
+
+## Importação
+
+```python
+from arc_devkit.stablecoins import USDCToken, EURCToken, StablecoinToken
+```
+
+<Callout type="tip" title="Compatibilidade retroativa">
+  `arc_devkit.usdc.token` continua funcionando como um shim de re-export — código existente que importa de lá não quebra. Código novo deve importar de `arc_devkit.stablecoins`.
+</Callout>
+
+## USDC
+
+```python
+usdc = USDCToken(contract_address="0xEnderecoDoContrato")
+balance = usdc.balance("0xCarteira")
+print(f"{balance} USDC")
+```
+
+## EURC
+
+```python
+eurc = EURCToken(contract_address="0xEnderecoEURC")
+balance = eurc.balance("0xCarteira")
+```
+
+<Callout type="warning" title="Sem endereço EURC padrão">
+  Diferente do USDC (que tem um endereço placeholder de testnet), `EURCToken` exige `contract_address` explícito — nenhum endereço EURC foi publicado pela Circle na Arc ainda.
+</Callout>
+
+## Transferências e approve
+
+```python
+tx_hash = usdc.transfer(to="0xDestino", amount=Decimal("10.5"), private_key="0x...")
+tx_hash = usdc.approve(spender="0xContrato", amount=Decimal("100"), private_key="0x...")
+allowance = usdc.allowance(owner="0xDono", spender="0xContrato")
+```
+
+## Referência da API
+
+### `StablecoinToken(contract_address, w3=None, symbol="USDC", decimals=6)`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `contract_address` | `str` | Endereço do contrato ERC-20 |
+| `w3` | `Web3 \| None` | Instância opcional (usa `get_web3()` por padrão) |
+| `symbol` | `str` | Símbolo exibido (ex: `"USDC"`, `"EURC"`) |
+| `decimals` | `int` | Casas decimais (Circle usa 6 para todas as stablecoins na Arc) |
+
+| Método | Descrição |
+|---|---|
+| `balance(address)` | Saldo em `Decimal` |
+| `allowance(owner, spender)` | Allowance atual |
+| `transfer(to, amount, private_key)` | Transfere e retorna tx hash |
+| `approve(spender, amount, private_key)` | Aprova gasto e retorna tx hash |

@@ -1,0 +1,90 @@
+---
+title: "CCTP Bridge"
+description: "Bridge cross-chain de USDC via CCTP — burn, attestation, mint."
+section: "Módulos"
+order: 33
+---
+
+`arc_devkit.bridge` implementa o fluxo **burn → attestation → mint** do Cross-Chain Transfer Protocol (CCTP) da Circle — o padrão público usado para mover USDC nativamente entre chains, sem wrapping.
+
+<Callout type="danger" title="Sem endereço CCTP publicado para a Arc ainda">
+  `CCTPBridge` levanta erro claro na construção se `contracts.cctp_token_messenger` da rede ativa for `None` — verdadeiro tanto para testnet quanto mainnet hoje. Configure `CCTP_ATTESTATION_API_URL` quando a Circle publicar suporte à Arc.
+</Callout>
+
+## Iniciando uma transferência
+
+```python
+from decimal import Decimal
+from arc_devkit.bridge import CCTPBridge
+from arc_devkit.core.connection import get_web3
+
+bridge = CCTPBridge(w3=get_web3(), network="testnet")
+
+transfer = bridge.start_transfer(
+    amount_usdc=Decimal("10.0"),
+    recipient="0xDestinoNaOutraChain",
+    destination_domain=0,       # domain CCTP da chain destino
+    dest_chain_id=1,
+    private_key="0xSuaChave",
+)
+print(transfer.status)   # BridgeStatus.BURNED ou FAILED
+```
+
+## Acompanhando e retomando
+
+```python
+from arc_devkit.bridge import load_transfer
+
+transfer = load_transfer(transfer.id)
+
+# Retoma a partir do último status conhecido (recuperação de erro)
+transfer = bridge.resume(transfer, dest_w3=dest_w3, message_transmitter_address="0x...", private_key="0x...")
+```
+
+Os registros de transferência (`BridgeTransfer`) são persistidos em `~/.arc_devkit/bridge_transfers/<id>.json`.
+
+## Guardrails
+
+```python
+from arc_devkit.agents.guardrails import Guardrails
+
+bridge = CCTPBridge(w3=get_web3(), network="testnet", guardrails=Guardrails.from_settings())
+```
+
+Aplica os mesmos checks de limite diário / whitelist / kill switch do `PaymentAgent`.
+
+## Monitorando conclusão
+
+```python
+from arc_devkit.agents.monitor_agent import MonitorAgent
+
+monitor = MonitorAgent(watched_address="0x...", watch_bridge_transfers=[transfer.id])
+monitor.on_bridge_completed(lambda evt: print("Bridge completo!", evt))
+```
+
+## CLI
+
+```bash
+arcdevkit bridge send 0xDest... 5.0 --dest-domain 0 --dest-chain-id 1
+arcdevkit bridge status <transfer_id>
+arcdevkit bridge resume <transfer_id> --dest-rpc https://... --message-transmitter 0x...
+```
+
+## API REST
+
+```bash
+curl -X POST http://localhost:8000/bridge/transfer -d '{...}'
+curl http://localhost:8000/bridge/status/<transfer_id>
+```
+
+## Status possíveis
+
+| Status | Descrição |
+|---|---|
+| `PENDING_BURN` | Ainda não iniciado |
+| `BURNED` | Burn confirmado na Arc |
+| `PENDING_ATTESTATION` | Aguardando attestation da Circle |
+| `ATTESTED` | Attestation obtida — pronto para mint |
+| `PENDING_MINT` | Mint em andamento na chain destino |
+| `COMPLETE` | Transferência concluída |
+| `FAILED` | Falhou — ver campo `error` |

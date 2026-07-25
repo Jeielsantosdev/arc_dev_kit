@@ -1,0 +1,90 @@
+---
+title: "CCTP Bridge"
+description: "Cross-chain USDC bridge via CCTP — burn, attestation, mint."
+section: "Modules"
+order: 33
+---
+
+`arc_devkit.bridge` implements the **burn → attestation → mint** flow of Circle's Cross-Chain Transfer Protocol (CCTP) — the public standard used to move USDC natively between chains, without wrapping.
+
+<Callout type="danger" title="No CCTP address published for Arc yet">
+  `CCTPBridge` raises a clear error at construction if the active network's `contracts.cctp_token_messenger` is `None` — true for both testnet and mainnet today. Set `CCTP_ATTESTATION_API_URL` once Circle publishes support for Arc.
+</Callout>
+
+## Starting a transfer
+
+```python
+from decimal import Decimal
+from arc_devkit.bridge import CCTPBridge
+from arc_devkit.core.connection import get_web3
+
+bridge = CCTPBridge(w3=get_web3(), network="testnet")
+
+transfer = bridge.start_transfer(
+    amount_usdc=Decimal("10.0"),
+    recipient="0xRecipientOnOtherChain",
+    destination_domain=0,       # destination chain's CCTP domain
+    dest_chain_id=1,
+    private_key="0xYourKey",
+)
+print(transfer.status)   # BridgeStatus.BURNED or FAILED
+```
+
+## Tracking and resuming
+
+```python
+from arc_devkit.bridge import load_transfer
+
+transfer = load_transfer(transfer.id)
+
+# Resume from the last known status (error recovery)
+transfer = bridge.resume(transfer, dest_w3=dest_w3, message_transmitter_address="0x...", private_key="0x...")
+```
+
+Transfer records (`BridgeTransfer`) persist to `~/.arc_devkit/bridge_transfers/<id>.json`.
+
+## Guardrails
+
+```python
+from arc_devkit.agents.guardrails import Guardrails
+
+bridge = CCTPBridge(w3=get_web3(), network="testnet", guardrails=Guardrails.from_settings())
+```
+
+Applies the same daily-spend/whitelist/kill-switch checks as `PaymentAgent`.
+
+## Monitoring completion
+
+```python
+from arc_devkit.agents.monitor_agent import MonitorAgent
+
+monitor = MonitorAgent(watched_address="0x...", watch_bridge_transfers=[transfer.id])
+monitor.on_bridge_completed(lambda evt: print("Bridge complete!", evt))
+```
+
+## CLI
+
+```bash
+arcdevkit bridge send 0xDest... 5.0 --dest-domain 0 --dest-chain-id 1
+arcdevkit bridge status <transfer_id>
+arcdevkit bridge resume <transfer_id> --dest-rpc https://... --message-transmitter 0x...
+```
+
+## REST API
+
+```bash
+curl -X POST http://localhost:8000/bridge/transfer -d '{...}'
+curl http://localhost:8000/bridge/status/<transfer_id>
+```
+
+## Possible statuses
+
+| Status | Description |
+|---|---|
+| `PENDING_BURN` | Not started yet |
+| `BURNED` | Burn confirmed on Arc |
+| `PENDING_ATTESTATION` | Waiting for Circle's attestation |
+| `ATTESTED` | Attestation obtained — ready to mint |
+| `PENDING_MINT` | Mint in progress on the destination chain |
+| `COMPLETE` | Transfer complete |
+| `FAILED` | Failed — see the `error` field |

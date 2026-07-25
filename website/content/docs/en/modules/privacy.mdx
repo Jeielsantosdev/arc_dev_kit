@@ -1,0 +1,59 @@
+---
+title: "Privacy (Experimental)"
+description: "View-key encryption for selective disclosure and confidential transfers."
+section: "Modules"
+order: 38
+---
+
+`arc_devkit.privacy` brings experimental privacy primitives: **view-key** encryption (working today, independent of any on-chain protocol) and a client for Arc's future confidential-transfer protocol.
+
+## View-key encryption
+
+Standard ECIES construction (ephemeral ECDH over secp256k1 → HKDF-SHA256 → AES-256-GCM), built on audited primitives from the `cryptography` library — not hand-rolled crypto.
+
+```python
+from arc_devkit.privacy.view_key import generate_view_keypair, encrypt_for_viewer, decrypt_as_viewer
+
+# The recipient generates their key pair
+viewer = generate_view_keypair()
+
+# Anyone can encrypt data to the viewer's public key
+payload = encrypt_for_viewer(viewer.public_key_bytes, b"balance: 42.5 USDC")
+
+# Only the private key holder can decrypt
+plaintext = decrypt_as_viewer(viewer.private_key, payload)
+```
+
+<Callout type="tip" title="Tested against wrong key and tampering">
+  `decrypt_as_viewer()` raises an exception (`InvalidTag`) for both a wrong key and a tampered ciphertext — AES-GCM provides authenticity natively.
+</Callout>
+
+## CLI
+
+```bash
+arcdevkit privacy generate-view-key
+arcdevkit privacy encrypt <public_key_hex> "balance: 42.5 USDC"
+```
+
+## Confidential transfers (on-chain protocol)
+
+```python
+from arc_devkit.privacy.confidential_transfer import ConfidentialTransferClient
+
+client = ConfidentialTransferClient(w3=get_web3(), contract_address="0xConfidentialContract")
+result = client.send_confidential(to="0xRecipient", encrypted_amount=payload_bytes, private_key="0x...")
+```
+
+<Callout type="danger" title="Protocol not exposed on testnet yet">
+  `ConfidentialTransferClient` raises without an explicit `contract_address` — Arc's (TEE-based) confidential-transfer protocol isn't available on testnet yet.
+</Callout>
+
+## API reference
+
+| Function/Class | Description |
+|---|---|
+| `generate_view_keypair()` | Generates a new secp256k1 key pair |
+| `encrypt_for_viewer(pubkey_bytes, plaintext)` | Returns an `EncryptedPayload` |
+| `decrypt_as_viewer(privkey, payload)` | Returns the original plaintext |
+| `EncryptedPayload.to_hex()` / `.from_hex()` | Serialization for transport |
+| `ConfidentialTransferClient` | Contract client (experimental) |

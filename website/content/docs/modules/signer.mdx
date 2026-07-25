@@ -1,0 +1,43 @@
+---
+title: "Signer Plugável"
+description: "Abstração de assinatura de transações — preparação para hardware wallets e pós-quântico."
+section: "Módulos"
+order: 37
+---
+
+`arc_devkit.core.signer` define uma interface `Signer` plugável, preparando o DevKit para o assinador pós-quântico planejado da Arc mainnet (ML-DSA/Dilithium/Falcon) e hardware wallets, sem expor a chave privada bruta ao código da aplicação.
+
+## LocalKeySigner (padrão funcional)
+
+```python
+from arc_devkit.core.signer import LocalKeySigner
+
+signer = LocalKeySigner(private_key="0xSuaChave")
+print(signer.address)
+
+signed = signer.sign_transaction(tx_dict)
+```
+
+`BaseAgent` já constrói um `LocalKeySigner` automaticamente (`self._signer`) sempre que uma chave privada é resolvida — de forma aditiva, sem mudar o comportamento existente de `self._private_key`.
+
+<Callout type="danger" title="Hardware wallets e pós-quântico ainda não implementados">
+  `LedgerSigner`, `TrezorSigner` e `MLDSASigner` são stubs que levantam `NotImplementedError`. Eles existem para que código novo já programe contra a interface `Signer`, mas exigem SDKs de fornecedor (`ledgereth`, `trezor`) ou um esquema pós-quântico que a Arc ainda não publicou.
+</Callout>
+
+## Referência da API
+
+### `Signer` (ABC)
+
+| Membro | Descrição |
+|---|---|
+| `address` (property) | Endereço da carteira |
+| `sign_transaction(tx)` | Retorna `SignedTransaction(raw_transaction, hash)` |
+
+### Implementações
+
+| Classe | Status |
+|---|---|
+| `LocalKeySigner` | Funcional — usa `eth_account` |
+| `LedgerSigner` | Stub — requer SDK Ledger |
+| `TrezorSigner` | Stub — requer SDK Trezor |
+| `MLDSASigner` | Stub — aguarda esquema pós-quântico da Arc |

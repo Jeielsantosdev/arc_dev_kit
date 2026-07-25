@@ -1,0 +1,81 @@
+---
+title: "Redes (Networks)"
+description: "Perfis de rede testnet/mainnet e registry de endereços de contrato."
+section: "Módulos"
+order: 30
+---
+
+O módulo `arc_devkit.networks` centraliza a configuração de rede — chain ID, RPC padrão, block explorer e endereços de contrato — para que trocar entre testnet e mainnet seja **só configuração**, nunca uma mudança de código.
+
+## Importação
+
+```python
+from arc_devkit.networks import NETWORKS, get_network
+```
+
+## Perfis disponíveis
+
+```python
+profile = get_network("testnet")
+
+print(profile.chain_id)     # 5042002
+print(profile.rpc_url)      # https://arc-testnet.drpc.org
+print(profile.contracts.usdc)
+```
+
+| Rede | Chain ID | RPC padrão | Status |
+|---|---|---|---|
+| `testnet` | `5042002` | `https://arc-testnet.drpc.org` | Configurado |
+| `mainnet` | `None` | `None` | Placeholder — Arc mainnet lança no verão de 2026 |
+
+<Callout type="warning" title="mainnet ainda é um placeholder">
+  Todos os campos de `NETWORKS["mainnet"]` são `None` até a Arc/Circle publicarem os valores reais. Usar `ARC_NETWORK=mainnet` sem configurar `ARC_RPC_URL` explicitamente resulta em erro claro na inicialização — nunca um endereço inventado.
+</Callout>
+
+## Selecionando a rede ativa
+
+A variável `ARC_NETWORK` (`testnet` por padrão) seleciona os defaults de RPC/chain ID:
+
+```bash
+# .env
+ARC_NETWORK=testnet
+```
+
+`ARC_RPC_URL`/`ARC_CHAIN_ID`, se definidos explicitamente, sempre têm prioridade sobre o perfil — arquivos `.env` existentes continuam funcionando sem qualquer alteração.
+
+```python
+from arc_devkit.config import settings
+
+print(settings.arc_network)   # "testnet"
+print(settings.network.name)  # "testnet" — NetworkProfile resolvido
+```
+
+## Verificando prontidão para mainnet
+
+```bash
+arcdevkit network list
+arcdevkit network show mainnet
+arcdevkit network check-mainnet
+```
+
+`check-mainnet` é um dry-run que reporta quais campos (`chain_id`, `rpc_url`, `explorer_url`, endereços de contrato) ainda faltam antes de trocar para `ARC_NETWORK=mainnet` em produção — veja o [checklist completo](https://github.com/Jeielsantosdev/arc_dev_kit/blob/main/MAINNET_CHECKLIST.md) no repositório.
+
+## Referência da API
+
+### `get_network(name: str) -> NetworkProfile`
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `name` | `str` | `"testnet"` ou `"mainnet"` |
+
+Levanta `ValueError` para nomes desconhecidos.
+
+### `NetworkProfile`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `name` | `str` | Nome da rede |
+| `chain_id` | `int \| None` | Chain ID |
+| `rpc_url` | `str \| None` | URL de RPC padrão |
+| `explorer_url` | `str \| None` | URL do block explorer |
+| `contracts` | `ContractAddresses` | Endereços de USDC, EURC, CCTP, Gateway |

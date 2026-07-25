@@ -37,6 +37,13 @@ print(settings.anthropic_model)   # claude-sonnet-4-6
 | `arc_chain_id` | `ARC_CHAIN_ID` | `int` | `5042002` |
 | `log_level` | `LOG_LEVEL` | `str` | `INFO` |
 | `api_key` | `API_KEY` | `str \| None` | `None` |
+| `arc_network` | `ARC_NETWORK` | `str` | `"testnet"` |
+| `cctp_attestation_api_url` | `CCTP_ATTESTATION_API_URL` | `str \| None` | `None` |
+| `arc_llms_txt_url` | `ARC_LLMS_TXT_URL` | `str \| None` | `None` |
+
+<Callout type="tip" title="ARC_NETWORK não quebra .env existentes">
+  `ARC_NETWORK` seleciona os defaults de RPC/chain ID de `arc_devkit/networks.py`. `ARC_RPC_URL`/`ARC_CHAIN_ID`, se definidos, sempre têm prioridade — arquivos `.env` de antes do Sprint 1 continuam funcionando sem alteração. Veja o módulo [Redes](/docs/modules/networks).
+</Callout>
 
 ## Configurando em testes
 

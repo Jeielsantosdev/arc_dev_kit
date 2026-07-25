@@ -1,0 +1,46 @@
+---
+title: "Price Oracle"
+description: "Client for Chainlink AggregatorV3Interface-compatible price feeds."
+section: "Modules"
+order: 36
+---
+
+`arc_devkit.oracle` reads price feeds compatible with Chainlink's `AggregatorV3Interface` standard — a stable public standard, used identically across many EVM chains, not specific to Arc.
+
+## Usage
+
+```python
+from arc_devkit.oracle import PriceOracle
+from arc_devkit.core.connection import get_web3
+
+oracle = PriceOracle(w3=get_web3(), feed_address="0xFeedAddress")
+
+data = oracle.latest_price()
+print(data.description)   # e.g. "ETH / USD"
+print(data.price)         # Decimal already converted by the feed's decimals
+```
+
+## Converting values
+
+```python
+result = oracle.convert(Decimal("10"))  # 10 units converted at the feed's price
+```
+
+<Callout type="warning" title="No bundled feed">
+  No Arc-specific feed address is bundled — pass the contract address of whichever feed you want to query.
+</Callout>
+
+## CLI
+
+```bash
+arcdevkit oracle price 0xFeedAddress...
+```
+
+## API reference
+
+### `PriceOracle(w3, feed_address, abi=None)`
+
+| Method | Returns |
+|---|---|
+| `latest_price()` | `PriceData(description, price, decimals, updated_at, round_id)` |
+| `convert(amount)` | `Decimal` — `amount * price` |

@@ -181,6 +181,117 @@ arcdevkit debug estimate 0xDest... 10.5
 arcdevkit debug estimate 0xDest... 10.5 --from 0xSender...
 ```
 
+#### `arcdevkit debug trace`
+
+```bash
+arcdevkit debug trace TX_HASH [--tracer TRACER]
+```
+
+Fetches an internal-call trace via `debug_traceTransaction`, if the RPC supports it. Most public RPCs (including Arc's default testnet RPC) disable the `debug_*` namespace — the command fails with a clear message instead of a generic error.
+
+#### `arcdevkit debug compare`
+
+```bash
+arcdevkit debug compare TX_HASH_1 TX_HASH_2
+```
+
+Analyzes two transactions side by side and highlights the differences (status, cost, revert reason).
+
+---
+
+### `arcdevkit network`
+
+Network profiles (testnet/mainnet) and contract addresses.
+
+```bash
+arcdevkit network list
+arcdevkit network show testnet
+arcdevkit network check-mainnet
+```
+
+`check-mainnet` is a dry-run reporting what's still missing before switching `ARC_NETWORK` to `mainnet` in production.
+
+---
+
+### `arcdevkit fees`
+
+```bash
+arcdevkit fees quote TO VALUE [--token native|usdc]
+```
+
+Fee quote in USDC for native or USDC transfers.
+
+```bash
+arcdevkit fees quote 0xDest... 5.0
+arcdevkit fees quote 0xDest... 5.0 --token usdc
+```
+
+---
+
+### `arcdevkit bridge`
+
+Cross-chain USDC bridge via CCTP.
+
+```bash
+arcdevkit bridge send TO AMOUNT --dest-domain DOMAIN --dest-chain-id CHAIN_ID [--key KEY]
+arcdevkit bridge status TRANSFER_ID
+arcdevkit bridge resume TRANSFER_ID [--dest-rpc URL --message-transmitter ADDR]
+```
+
+<Callout type="warning" title="Fails until Arc publishes the CCTP contract">
+  No Arc network has a published CCTP TokenMessenger address yet — `bridge send`/`resume` fail with a clear message instead of simulating functionality.
+</Callout>
+
+---
+
+### `arcdevkit agent register` / `reputation` / `job`
+
+Agent identity/reputation (ERC-8004) and job escrow marketplace (ERC-8183).
+
+```bash
+arcdevkit agent register DOMAIN --registry ADDR [--key KEY]
+arcdevkit agent reputation AGENT_ID --registry ADDR --reputation-registry ADDR
+
+arcdevkit agent job create AGENT_ADDR AMOUNT --spec "..." --registry ADDR [--key KEY]
+arcdevkit agent job accept JOB_ID --registry ADDR [--key KEY]
+arcdevkit agent job deliver JOB_ID DELIVERABLE --registry ADDR [--key KEY]
+arcdevkit agent job settle JOB_ID --registry ADDR [--key KEY]
+arcdevkit agent job status JOB_ID --registry ADDR
+```
+
+No canonical ERC-8004/8183 registry is published for Arc yet — every command requires an explicit `--registry`.
+
+---
+
+### `arcdevkit mcp`
+
+```bash
+arcdevkit mcp serve
+```
+
+Runs Arc DevKit as an MCP server (requires `pip install "arc-devkit[mcp]"`), exposing read-only tools to Claude Code and other MCP clients.
+
+---
+
+### `arcdevkit oracle`
+
+```bash
+arcdevkit oracle price FEED_ADDRESS
+```
+
+Queries a Chainlink `AggregatorV3Interface`-compatible price feed.
+
+---
+
+### `arcdevkit privacy`
+
+```bash
+arcdevkit privacy generate-view-key
+arcdevkit privacy encrypt PUBLIC_KEY_HEX "message"
+```
+
+Key-pair generation and view-key encryption for selective disclosure (experimental).
+
 ---
 
 ## `arc` — flat CLI (full set)
