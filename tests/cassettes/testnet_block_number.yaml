@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 0}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '70'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - web3.py/7.16.0/web3.providers.rpc.rpc.HTTPProvider
+    method: POST
+    uri: https://arc-testnet.drpc.org/
+  response:
+    body:
+      string: '{"id":0,"jsonrpc":"2.0","result":"0x332034e"}'
+    headers:
+      CF-RAY:
+      - a20c3dff5b6ef624-FOR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - zstd
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 25 Jul 2026 15:36:47 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains
+      vary:
+      - Accept-Encoding
+      x-drpc-owner-id:
+      - cb501251-31a8-4028-8b0a-54679f15c385
+      x-drpc-owner-tier:
+      - free
+      x-drpc-trace-id:
+      - 5c9482cb0c8f89a17b9f1cf38aeefda5
+    status:
+      code: 200
+      message: OK
+version: 1
