@@ -6,6 +6,78 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.8.0] — 2026-07-25
+
+Implements all six sprints of `SPRINTS_2026H2.md` — multi-network config,
+fees/paymaster, CCTP bridge, the ERC-8004/8183 agentic economy, an
+Arc-aligned Copilot with its own MCP server, and privacy/post-quantum
+groundwork. Wherever Arc/Circle haven't published a contract address or
+endpoint yet (CCTP, paymasters, ERC-8004/8183 registries, confidential
+transfers, price feeds), the affected code fails with a clear, explicit
+error instead of guessing — that convention is used consistently across
+every new module below.
+
+### Added — Networks & Stablecoins (Sprint 1)
+
+- `arc_devkit/networks.py` — `NetworkProfile`/`ContractAddresses` registry for `testnet`/`mainnet`; mainnet fields are explicit `None` placeholders
+- `ARC_NETWORK` env var selects RPC/chain-ID defaults from the registry; explicit `ARC_RPC_URL`/`ARC_CHAIN_ID` always win, so existing `.env` files keep working unchanged
+- `arc_devkit/stablecoins/` — generalizes `usdc/token.py` into `StablecoinToken` (`USDCToken`, `EURCToken`); `usdc/token.py` is now a backward-compatible re-export shim
+- `arcdevkit network list|show|check-mainnet` CLI commands (the last is a mainnet-readiness dry-run — see `MAINNET_CHECKLIST.md`)
+- Offline RPC regression tests via `vcrpy` cassette replay
+- Keyring backend failures (e.g. no libsecret/D-Bus on headless Linux) now log a warning instead of failing silently
+
+### Added — Fees & Paymaster (Sprint 2)
+
+- `core/gas.py::quote_fee()` — fee quote in USDC for native or USDC ERC-20 transfers, plus paymaster availability (always `False` today — no Arc paymaster is published)
+- `arc_devkit/paymaster/` — `detect_paymaster()` and a standard, chain-agnostic ERC-4337 `UserOperation` builder, ready for when Arc publishes Account Abstraction infrastructure
+- `PaymentAgent.execute(..., use_paymaster=True)` fails clearly instead of pretending to sponsor the fee
+- `arcdevkit fees quote` CLI + `GET /fees/quote` API
+
+### Added — CCTP Bridge & Unified Balance (Sprint 3)
+
+- `arc_devkit/bridge/` — `CCTPBridge` implements Circle's CCTP burn → attestation → mint flow; raises clearly when the active network has no published `cctp_token_messenger` address (true for testnet and mainnet today) or no `CCTP_ATTESTATION_API_URL` configured. `BridgeTransfer` records persist locally; `resume()` is the error-recovery entrypoint
+- `MonitorAgent(watch_bridge_transfers=[...])` + `on_bridge_completed()` trigger
+- `PortfolioAnalyzer.unified_balance()` — chain-agnostic USDC balance across Arc plus caller-supplied EVM chains
+- `arcdevkit bridge send|status|resume` CLI + `POST /bridge/transfer`, `GET /bridge/status/{id}` API
+
+### Added — Agentic Economy: ERC-8004 / ERC-8183 (Sprint 4)
+
+- `agents/identity.py` — `AgentRegistry`: on-chain agent registration and reputation (ERC-8004)
+- `agents/jobs.py` — `JobRegistry`: ERC-8183 escrow lifecycle (create → accept → deliver → settle), auditable via `Guardrails`
+- `agents/job_agent.py` — `JobAgent(BaseAgent)` accepts and executes jobs autonomously within the kill switch
+- `CoordinatorAgent.hire_agent()` — hires another agent via a job, through the coordinator's registered `PaymentAgent`
+- `arcdevkit agent register|reputation|job create|accept|deliver|settle|status` CLI + `/agents/register`, `/agents/reputation/{id}`, `/agents/jobs*` API
+- Cookbook recipe + `examples/06_agent_job_negotiation.py`: two agents negotiating a job end to end
+- No canonical ERC-8004/8183 registry address is published for Arc — both clients always require an explicit registry address
+
+### Added — Copilot, MCP Server & Debugger (Sprint 5)
+
+- Copilot system prompt covers Stable Fee Design, Malachite finality, CCTP, and the agentic economy; explicitly told to say a feature "isn't published yet" rather than invent one
+- New `run_agent()` tools: `get_fee_quote`, `get_bridge_status`, `get_agent_reputation`, `search_arc_docs` (keyword search over `ARC_LLMS_TXT_URL`'s llms.txt, when configured)
+- `TxAnalyzer.trace_transaction()` — `debug_traceTransaction` support, with a clear "not supported by this RPC" result instead of a crash (most public RPCs, including Arc's default testnet endpoint, disable the `debug_*` namespace)
+- `arcdevkit debug trace|compare` CLI commands
+- `arc_devkit/mcp_server.py` — `arcdevkit mcp serve` runs a `FastMCP` stdio server exposing the same read-only tools to Claude Code and other MCP clients (optional `mcp` extra)
+
+### Added — Privacy, Post-Quantum Prep & Mainnet Readiness (Sprint 6)
+
+- `core/signer.py` — pluggable `Signer` interface; `LocalKeySigner` is the functional default (wired additively into `BaseAgent`), `LedgerSigner`/`TrezorSigner`/`MLDSASigner` are explicit stubs pending vendor SDKs / an Arc-published post-quantum scheme
+- `arc_devkit/privacy/view_key.py` — working ECIES encryption (ECDH secp256k1 → HKDF-SHA256 → AES-256-GCM) for selective disclosure, independent of any on-chain protocol; `confidential_transfer.py` is the on-chain half, gated behind an explicit contract address
+- `arc_devkit/oracle/price_feed.py` — Chainlink `AggregatorV3Interface`-compatible price feed client
+- `locustfile.py` (read-only load tests) and `cliff.toml` (git-cliff changelog config)
+- `MAINNET_CHECKLIST.md` and `arcdevkit network check-mainnet`
+- `docs/playground.md` — hands-on guide across all six sprints' modules
+
+### Fixed — Security
+
+- `verify_api_key()` now uses `hmac.compare_digest()` instead of `!=` for the `X-API-Key` check (was vulnerable to a timing side-channel)
+- The WebSocket monitor endpoint (`/agents/monitor/{address}`) previously bypassed `API_KEY` entirely despite a code comment claiming otherwise — it now requires the same key via an `api_key` query param (a WS handshake can't carry custom headers from a browser)
+
+### Fixed — Usability
+
+- Every new address-taking constructor (`JobRegistry`, `AgentRegistry`, `PriceOracle`, `ConfidentialTransferClient`, `CCTPBridge`) now validates input through `core/validation.validate_address()`. Previously, an invalid address crashed with an unhandled, web3-internal `ValueError` and a full traceback in both the CLI and REST API; it now returns a clean one-line error (CLI: `✗ Error: ...`, exit 1; API: `400` with a clear `detail`) — found via a dedicated usability pass across every new CLI command
+
+---
+
 ## [0.4.7] — 2026-07-06
 
 ### Added — Agentic
