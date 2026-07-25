@@ -10,6 +10,7 @@ import logging
 
 from arc_devkit.agents.event_bus import EventBus
 from arc_devkit.agents.guardrails import Guardrails
+from arc_devkit.agents.jobs import Job, JobRegistry
 from arc_devkit.agents.monitor_agent import MonitorAgent
 from arc_devkit.agents.payment_agent import PaymentAgent
 
@@ -92,6 +93,44 @@ class CoordinatorAgent:
         )
         self.bus.publish_sync("coordinator.transfer", {"to": to, "result": result})
         return result
+
+    def hire_agent(
+        self,
+        job_registry: JobRegistry,
+        agent_address: str,
+        amount_usdc: float,
+        spec: str,
+    ) -> Job:
+        """
+        Create a job (with USDC escrow) hiring another agent — planning a
+        workflow that contracts other agents via ERC-8183 jobs.
+
+        Requires a PaymentAgent registered with a private key (its wallet
+        signs the job-creation tx and funds the escrow). The caller must have
+        already approved `job_registry`'s contract to spend `amount_usdc` USDC.
+        """
+        from decimal import Decimal
+
+        if self._payment_agent is None or self._payment_agent._private_key is None:
+            return Job(
+                job_id=0,
+                requester="",
+                agent=agent_address,
+                amount_usdc=Decimal(str(amount_usdc)),
+                spec=spec,
+                error="No PaymentAgent with a private key registered.",
+            )
+
+        job = job_registry.create_job(
+            agent_address,
+            Decimal(str(amount_usdc)),
+            spec,
+            self._payment_agent._private_key,
+        )
+        self.bus.publish_sync(
+            "coordinator.hire", {"agent": agent_address, "job_id": job.job_id, "spec": spec}
+        )
+        return job
 
     def maintain_balance(
         self,

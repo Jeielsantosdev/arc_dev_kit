@@ -236,6 +236,41 @@ class TestCoordinator:
         assert result["status"] == "sent"
         assert agent._guardrails is not None  # guardrails were injected
 
+    def test_hire_agent_requires_payment_agent(self, tmp_path):
+        from arc_devkit.agents.coordinator import CoordinatorAgent
+        from arc_devkit.agents.guardrails import Guardrails
+
+        coordinator = CoordinatorAgent(guardrails=Guardrails(state_dir=tmp_path))
+        job = coordinator.hire_agent(MagicMock(), _ADDR, 25.0, "summarize this PDF")
+        assert job.error is not None
+
+    def test_hire_agent_delegates_to_job_registry(self, tmp_path):
+        from decimal import Decimal
+
+        from arc_devkit.agents.coordinator import CoordinatorAgent
+        from arc_devkit.agents.guardrails import Guardrails
+        from arc_devkit.agents.jobs import Job
+
+        coordinator = CoordinatorAgent(guardrails=Guardrails(state_dir=tmp_path))
+        payment_agent = MagicMock()
+        payment_agent._guardrails = None
+        payment_agent._private_key = (
+            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+        )
+        coordinator.register_payment_agent(payment_agent)
+
+        job_registry = MagicMock()
+        job_registry.create_job.return_value = Job(
+            job_id=1, requester=_ADDR, agent=_ADDR, amount_usdc=Decimal("25"), spec="spec"
+        )
+
+        job = coordinator.hire_agent(job_registry, _ADDR, 25.0, "summarize this PDF")
+
+        assert job.job_id == 1
+        job_registry.create_job.assert_called_once_with(
+            _ADDR, Decimal("25.0"), "summarize this PDF", payment_agent._private_key
+        )
+
 
 # ---------------------------------------------------------------------------
 # AgentDashboard
